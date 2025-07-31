@@ -1,19 +1,8 @@
-import multer from "multer";
-import path from "path";
+const multer = require("multer");
+const path = require("path");
 
-// Define storage for uploaded files
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, "./public"); // Ensure this directory exists
-    },
-    filename: function (req, file, cb) {
-        // Generate a unique filename with the original file extension
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const extension = path.extname(file.originalname); // Get file extension (e.g., .jpg, .png)
-        const filename = `${uniqueSuffix}${extension}`; // Combine unique suffix and extension
-        cb(null, filename); // Finalize the filename
-    }
-});
+// Define storage for uploaded files - using memory storage for Vercel compatibility
+const storage = multer.memoryStorage();
 
 // Create the multer instance
 const upload = multer({ 
@@ -29,4 +18,4 @@ const upload = multer({
     }
 });
 
-export default upload;
+module.exports = upload;

@@ -1,10 +1,7 @@
-import express from "express";
-import upload from "../config/multerconfig"; // Adjust the path to your Multer config file
+const express = require("express");
+const upload = require("../src/config/multerconfig"); // Adjust the path to your Multer config file
 
 const app = express();
-
-// Serve static files from the "public" directory
-app.use(express.static("public"));
 
 // Upload route
 app.post("/upload", upload.single("image"), (req, res) => {
@@ -21,14 +18,11 @@ app.post("/upload", upload.single("image"), (req, res) => {
             success: true,
             message: "File uploaded successfully.",
             file: {
-                filename: req.file.filename,
-                path: req.file.path,
+                filename: req.file.originalname,
                 size: req.file.size,
                 mimetype: req.file.mimetype,
-                destination: req.file.destination,
                 fieldname: req.file.fieldname,
-                stream: req.file.stream,
-
+                buffer: req.file.buffer ? "Buffer present" : "No buffer"
             },
         });
     } catch (err) {
@@ -37,8 +31,5 @@ app.post("/upload", upload.single("image"), (req, res) => {
     }
 });
 
-// Start the server
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+// Export for use in main server
+module.exports = app;

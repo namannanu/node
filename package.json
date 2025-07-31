@@ -5,7 +5,9 @@
   "main": "src/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "build": "echo 'Build completed'",
     "populate": "node src/scripts/populateDatabase.js",
     "populate-dev": "node src/scripts/populateDatabase.js && npm start",
     "upload-dummy": "node src/scripts/uploadDummyData.js --confirm",
