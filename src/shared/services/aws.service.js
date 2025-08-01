@@ -1,4 +1,4 @@
-const { s3, rekognition } = require('../../config/aws');
+const { s3, rekognition } = require('../../features/aws/aws.config');
 const AppError = require('../utils/appError');
 
 exports.uploadFile = async (file, bucketName, key) => {

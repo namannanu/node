@@ -11,7 +11,7 @@ const {
 
 // Create a new employee user
 exports.createEmployee = catchAsync(async (req, res, next) => {
-  const { fullName, email, password, phone, permissions } = req.body;
+  const { email, password, phone, permissions, name } = req.body;
 
   // Validate permissions
   const validation = validatePermissions(permissions, req.user);
@@ -44,8 +44,12 @@ exports.createEmployee = catchAsync(async (req, res, next) => {
   // Convert to lowercase for consistency
   const normalizedPermissions = permissions ? permissions.map(p => p.toLowerCase()) : [];
 
+  // Generate unique userId in backend
+  const UserId = `emp-${Math.random().toString(36).substr(2, 9)}-${Date.now().toString(36)}`;
+  
   const newUser = await User.create({
-    fullName,
+    userId: UserId,
+    name,
     email,
     password,
     phone,
@@ -100,7 +104,11 @@ exports.createAdminUser = catchAsync(async (req, res, next) => {
   // Convert to lowercase for consistency
   const normalizedPermissions = permissions ? permissions.map(p => p.toLowerCase()) : [];
 
+  // Generate unique userId in backend
+  const generatedUserId = `admin-${Math.random().toString(36).substr(2, 9)}-${Date.now().toString(36)}`;
+  
   const newAdminUser = await AdminUser.create({
+    userId: generatedUserId,
     email,
     password,
     role,

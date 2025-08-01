@@ -1,10 +1,14 @@
-const Feedback = require('./feedback.model');
-const AppError = require('../../shared/utils/appError');
 const catchAsync = require('../../shared/utils/catchAsync');
+const AppError = require('../../shared/utils/appError');
+const Feedback = require('./feedback.model');
+const User = require('../auth/auth.model'); // Import User model
+const Event = require('../events/event.model'); // Import Event model
 const mongoose = require('mongoose');
 
 exports.getAllFeedback = catchAsync(async (req, res, next) => {
-  const feedback = await Feedback.find().populate('user event');
+  const feedback = await Feedback.find()
+    .populate('user', 'name email')
+    .populate('event', 'name date');
 
   res.status(200).json({
     status: 'success',
@@ -16,7 +20,9 @@ exports.getAllFeedback = catchAsync(async (req, res, next) => {
 });
 
 exports.getFeedback = catchAsync(async (req, res, next) => {
-  const feedback = await Feedback.findById(req.params.id).populate('user event');
+  const feedback = await Feedback.findById(req.params.id)
+    .populate('user', 'name email')
+    .populate('event', 'name date');
 
   if (!feedback) {
     return next(new AppError('No feedback found with that ID', 404));
@@ -33,7 +39,11 @@ exports.getFeedback = catchAsync(async (req, res, next) => {
 exports.createFeedback = catchAsync(async (req, res, next) => {
   const { user, event, rating, category, subject, message } = req.body;
   
-  // Validate ObjectId format first
+  // Validate required fields
+  if (!user || !event) {
+    return next(new AppError('User and event are required.', 400));
+  }
+  
   if (!mongoose.Types.ObjectId.isValid(user)) {
     return next(new AppError('Invalid user ID format.', 400));
   }
@@ -42,28 +52,16 @@ exports.createFeedback = catchAsync(async (req, res, next) => {
     return next(new AppError('Invalid event ID format.', 400));
   }
   
-  // Try to check if user exists (graceful handling of model conflicts)
-  try {
-    const User = mongoose.model('User');
-    const existingUser = await User.findById(user);
-    if (!existingUser) {
-      return next(new AppError('User not found. Please provide a valid user ID.', 404));
-    }
-  } catch (modelError) {
-    // If there's a model conflict, we'll skip user validation but continue
-    console.warn('User model validation skipped due to model conflict');
+  // Check if user exists
+  const existingUser = await User.findById(user);
+  if (!existingUser) {
+    return next(new AppError('User not found. Please provide a valid user ID.', 404));
   }
   
-  // Try to check if event exists (graceful handling of model conflicts)
-  try {
-    const Event = mongoose.model('Event');
-    const existingEvent = await Event.findById(event);
-    if (!existingEvent) {
-      return next(new AppError('Event not found. Please provide a valid event ID.', 404));
-    }
-  } catch (modelError) {
-    // If there's a model conflict, we'll skip event validation but continue
-    console.warn('Event model validation skipped due to model conflict');
+  // Check if event exists
+  const existingEvent = await Event.findById(event);
+  if (!existingEvent) {
+    return next(new AppError('Event not found. Please provide a valid event ID.', 404));
   }
   
   // Validate required fields
@@ -119,10 +117,11 @@ exports.createFeedback = catchAsync(async (req, res, next) => {
     });
   }
   
+  
   // Populate the response with user and event details
   const populatedFeedback = await Feedback.findById(feedback._id)
     .populate('user', 'name email')
-    .populate('event', 'title date');
+    .populate('event', 'name date');
 
   res.status(201).json({
     status: 'success',

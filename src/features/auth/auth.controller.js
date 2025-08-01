@@ -5,6 +5,7 @@ const catchAsync = require('../../shared/utils/catchAsync');
 exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await authService.signup({
     name: req.body.name,
+    userId: req.body.userId,
     email: req.body.email,
     password: req.body.password,
     phone: req.body.phone,

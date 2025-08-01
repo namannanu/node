@@ -43,24 +43,8 @@ app.use(cors(corsOptions));
 app.use(express.json()); 
 app.use(cookieParser());
 app.use(morgan('dev'));
-app.use('/api/auth', require('./features/auth/auth.routes'));
 
-// Routes
-const userRoutes = require('../routes/user');
-const logRoutes = require('../routes/logout');
-const amplifyRoutes = require('../routes/amplify');
-const ticketRoutes = require('../routes/tickets');
-const eventCreateRoutes = require('../routes/EventCreate');
-
-// Correct usage: attach routers after app initialization
-app.use("/api/auth", amplifyRoutes); 
-app.use('/api/auth', userRoutes); 
-app.use('/api/auth', logRoutes); 
-app.use('/api/auth', eventCreateRoutes);
-app.use('/api/auth', ticketRoutes); 
-
-
-
+// Import and use feature routes
 const eventRoutes = require('./features/events/event.routes');
 const organizerRoutes = require('./features/organizers/organizer.routes');  
 const ticketRoute = require('./features/tickets/ticket.routes');
@@ -68,9 +52,10 @@ const feedbackRoutes = require('./features/feedback/feedback.routes');
 const adminRoutes = require('./features/admin/admin.routes');
 const registrationRoutes = require('./features/registrations/userEventRegistration.routes');
 const userRoutesNew = require('./features/users/user.routes');
+const authRoutes = require('./features/auth/auth.routes');
 
-
-
+// Use feature routes
+app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/organizers', organizerRoutes);
 app.use('/api/tickets', ticketRoute);
@@ -78,9 +63,6 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/users', userRoutesNew);
-
-
-
 
 // Basic Routes
 app.get('/favicon.ico', (req, res) => res.status(204).end());
@@ -201,7 +183,6 @@ app.get('/api/public/organizers', async (req, res) => {
     });
   }
 });
-
 
 // Define PORT and start server
 const PORT = process.env.PORT || 3000;

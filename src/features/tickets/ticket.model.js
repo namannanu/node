@@ -24,4 +24,13 @@ const ticketSchema = new mongoose.Schema({
   faceVerified: { type: Boolean, default: false }
 });
 
-module.exports = mongoose.model('Ticket', ticketSchema);
+// Update the updatedAt field before saving
+ticketSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+// Check if model already exists before defining it
+const Ticket = mongoose.models.Ticket || mongoose.model('Ticket', ticketSchema);
+
+module.exports = Ticket;

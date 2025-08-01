@@ -80,4 +80,13 @@ userEventRegistrationSchema.index({ status: 1 });
 userEventRegistrationSchema.index({ faceVerificationStatus: 1 });
 userEventRegistrationSchema.index({ eventId: 1, userId: 1 }, { unique: true }); // Prevent duplicate registrations
 
-module.exports = mongoose.model('UserEventRegistration', userEventRegistrationSchema);
+// Update the updatedAt field before saving
+userEventRegistrationSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+// Check if model already exists before defining it
+const UserEventRegistration = mongoose.models.UserEventRegistration || mongoose.model('UserEventRegistration', userEventRegistrationSchema);
+
+module.exports = UserEventRegistration;

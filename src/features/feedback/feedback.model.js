@@ -34,4 +34,13 @@ const feedbackSchema = new mongoose.Schema({
 // Ensure one feedback document per user-event combination
 feedbackSchema.index({ user: 1, event: 1 }, { unique: true });
 
-module.exports = mongoose.model('Feedback', feedbackSchema);
+// Update the updatedAt field before saving
+feedbackSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+// Check if model already exists before defining it
+const Feedback = mongoose.models.Feedback || mongoose.model('Feedback', feedbackSchema);
+
+module.exports = Feedback;
