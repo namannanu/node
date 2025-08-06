@@ -2,8 +2,8 @@ const axios = require('axios');
 
 class FrontendService {
   constructor() {
-    this.baseURL = process.env.FRONTEND_URL || 'http://localhost:3000';
-    this.apiURL = process.env.API_URL || 'http://localhost:3000/api';
+    this.baseURL = process.env.FRONTEND_URL || 'https://correct-three.vercel.app';
+    this.apiURL = process.env.API_URL || 'https://correct-three.vercel.app/api';
   }
 
   // Upload face image

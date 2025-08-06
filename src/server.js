@@ -19,9 +19,6 @@ console.log('Environment check:');
 console.log('MONGO_URI:', process.env.MONGO_URI ? 'Found' : 'NOT FOUND');
 console.log('PORT:', process.env.PORT || 'Using default 3000');
 
-// Connect to the database
-connectDB();
-
 // CORS Configuration
 const corsOptions = {
   origin: [
@@ -186,6 +183,59 @@ app.get('/api/public/organizers', async (req, res) => {
   }
 });
 
-// Define PORT and start server
+// Define PORT
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => console.log(`Server running on: 0.0.0.0:${PORT}`.blue.underline.bold));
+
+// Start server function - Wait for database connection first
+const startServer = async () => {
+  try {
+    console.log('🚀 Starting application...'.blue.bold);
+    
+    // Connect to database first and wait for it to complete
+    console.log('🔄 Establishing database connection...'.yellow);
+    await connectDB();
+    console.log('✅ Database connection established successfully!'.green.bold);
+    
+    // Only start the server after database is connected
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`✅ Server running on: http://0.0.0.0:${PORT}`.blue.underline.bold);
+      console.log('🎉 Server is ready to accept requests!'.green.bold);
+      console.log('📡 API endpoints are now available'.cyan);
+    });
+    
+    // Handle graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('🛑 SIGTERM received. Shutting down gracefully...'.yellow);
+      server.close(() => {
+        console.log('✅ Server closed successfully.'.green);
+      });
+    });
+    
+    process.on('SIGINT', () => {
+      console.log('🛑 SIGINT received. Shutting down gracefully...'.yellow);
+      server.close(() => {
+        console.log('✅ Server closed successfully.'.green);
+        process.exit(0);
+      });
+    });
+    
+    return server;
+    
+  } catch (error) {
+    console.error('❌ Failed to start server:'.red.bold);
+    console.error('🔍 Error details:', error.message.red);
+    console.error('📋 Full error:', error);
+    
+    // Provide helpful error messages
+    if (error.message.includes('MONGO_URI')) {
+      console.error('💡 Tip: Check your MongoDB connection string in config.env'.yellow);
+    } else if (error.message.includes('EADDRINUSE')) {
+      console.error('💡 Tip: Port is already in use. Try a different port or kill existing processes'.yellow);
+    }
+    
+    process.exit(1);
+  }
+};
+
+// Start the application
+startServer();
