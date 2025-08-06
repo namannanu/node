@@ -9,6 +9,7 @@ const {
 
 const collectionId = process.env.REKOGNITION_COLLECTION_ID || 'face-recognition-collection';
 
+
 const faceRecognitionService = {
   async createCollection() {
     try {
