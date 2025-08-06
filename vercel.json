@@ -2,21 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "src/**",
-          "node_modules/@aws-sdk/**",
-          "node_modules/uuid/**"
-        ]
-      }
+      "src": "api/serverless.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/api/index.js",
+      "dest": "/api/serverless.js",
       "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     }
   ],
@@ -24,9 +17,8 @@
     "NODE_ENV": "production"
   },
   "functions": {
-    "api/index.js": {
-      "maxDuration": 30,
-      "bundleSize": "50mb"
+    "api/serverless.js": {
+      "maxDuration": 30
     }
   }
 }
