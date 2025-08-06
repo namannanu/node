@@ -12,14 +12,16 @@ const connectDB = async () => {
     try {
         console.log('🔄 Connecting to MongoDB...'.yellow); // Debug log
         
+        // Set Mongoose-specific options
+        mongoose.set('bufferCommands', false); // Disable command buffering
+        
         const options = {
             maxPoolSize: 10,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
-            bufferCommands: false, // This requires awaiting connection before any operations
-            bufferMaxEntries: 0,   // Disable mongoose buffering
-            useNewUrlParser: true,
-            useUnifiedTopology: true
+            connectTimeoutMS: 10000,
+            // Remove the problematic bufferMaxEntries option
+            // bufferCommands is handled by Mongoose, not MongoDB driver
         };
         
         const conn = await mongoose.connect(process.env.MONGO_URI, options);
