@@ -7,7 +7,10 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "serverless": "node api/index.js",
     "build": "echo 'Build completed'",
+    "deploy": "vercel --prod",
+    "deploy-preview": "vercel",
     "populate": "node src/scripts/populateDatabase.js",
     "populate-dev": "node src/scripts/populateDatabase.js && npm start",
     "upload-dummy": "node src/scripts/uploadDummyData.js --confirm",
@@ -26,7 +29,6 @@
     "@aws-sdk/client-dynamodb": "^3.839.0",
     "@aws-sdk/client-rekognition": "^3.741.0",
     "@aws-sdk/client-s3": "^3.741.0",
-    "@aws-sdk/credential-providers": "^3.857.0",
     "@aws-sdk/s3-request-presigner": "^3.857.0",
     "@vercel/functions": "^2.0.0",
     "axios": "^1.10.0",
@@ -41,7 +43,7 @@
     "mongodb": "^6.17.0",
     "mongoose": "^8.9.7",
     "multer": "^1.4.5-lts.1",
-    "uuid": "^9.0.1"
+    "uuid": "9.0.1"
   },
   "repository": {
     "type": "git",
