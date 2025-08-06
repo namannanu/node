@@ -26,9 +26,11 @@ connectDB();
 const corsOptions = {
   origin: [
     'http://localhost:8080',  // Vite dev server
+    'http://localhost:8081',  // Alternative Vite dev server port
     'http://localhost:3000',  // React dev server (if used)
     'http://localhost:5173',  // Alternative Vite port
     'http://127.0.0.1:8080',
+    'http://127.0.0.1:8081',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173'
   ],
@@ -186,4 +188,4 @@ app.get('/api/public/organizers', async (req, res) => {
 
 // Define PORT and start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on: ${PORT}`.blue.underline.bold));
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on: 0.0.0.0:${PORT}`.blue.underline.bold));

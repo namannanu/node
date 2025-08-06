@@ -9,9 +9,11 @@ const userSchema = new mongoose.Schema({
     default: () => `user-${Math.random().toString(36).substr(2, 9)}-${Date.now().toString(36)}`
   },
   name: { type: String, required: true },
+  firstname: { type: String },
+  lastname: { type: String },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  phone: { type: String, required: true },
+  phone: { type: String },
   role: { type: String, enum: ['user', 'employee', 'admin'], default: 'user' },
   permissions: [{ type: String }],
   avatar: { type: String },
@@ -30,6 +32,13 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.pre('save', async function(next) {
+  // Split name into firstname and lastname if they don't exist
+  if (this.name && !this.firstname && !this.lastname) {
+    const nameParts = this.name.trim().split(' ');
+    this.firstname = nameParts[0] || '';
+    this.lastname = nameParts.slice(1).join(' ') || '';
+  }
+  
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();

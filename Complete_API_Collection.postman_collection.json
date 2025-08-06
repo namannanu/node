@@ -1,0 +1,1167 @@
+{
+  "info": {
+    "name": "Complete Thrillathon API Collection",
+    "description": "Comprehensive API collection for the Thrillathon event management platform including authentication, events, tickets, admin, feedback, users, organizers, and registrations",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "thrillathon-complete-api-collection"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://192.0.0.2:3000",
+      "type": "string"
+    },
+    {
+      "key": "api_url",
+      "value": "{{base_url}}/api",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "event_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ticket_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "registration_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "organizer_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "feedback_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.token) {",
+                  "        pm.collectionVariables.set('jwt_token', jsonData.token);",
+                  "    }",
+                  "    if (jsonData.data && jsonData.data.user && jsonData.data.user._id) {",
+                  "        pm.collectionVariables.set('user_id', jsonData.data.user._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"+1234567890\",\n  \"role\": \"user\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/signup",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "signup"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.token) {",
+                  "        pm.collectionVariables.set('jwt_token', jsonData.token);",
+                  "        console.log('JWT Token saved:', jsonData.token);",
+                  "    }",
+                  "    if (jsonData.data && jsonData.data.user && jsonData.data.user._id) {",
+                  "        pm.collectionVariables.set('user_id', jsonData.data.user._id);",
+                  "        console.log('User ID saved:', jsonData.data.user._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"khati@gmail.com\",\n  \"password\": \"donkey\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/login",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.token) {",
+                  "        pm.collectionVariables.set('jwt_token', jsonData.token);",
+                  "        console.log('Admin JWT Token saved:', jsonData.token);",
+                  "    }",
+                  "    if (jsonData.data && jsonData.data.user && jsonData.data.user._id) {",
+                  "        pm.collectionVariables.set('user_id', jsonData.data.user._id);",
+                  "        console.log('Admin User ID saved:', jsonData.data.user._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/auth/login",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/auth",
+              "host": ["{{api_url}}"],
+              "path": ["auth"]
+            }
+          }
+        },
+        {
+          "name": "Logout User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/auth/logout",
+              "host": ["{{api_url}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎉 Events",
+      "item": [
+        {
+          "name": "Get Event Stats (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/events/stats",
+              "host": ["{{api_url}}"],
+              "path": ["events", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Get All Events",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.length > 0) {",
+                  "        pm.collectionVariables.set('event_id', jsonData.data[0]._id);",
+                  "        console.log('Event ID saved:', jsonData.data[0]._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/events",
+              "host": ["{{api_url}}"],
+              "path": ["events"]
+            }
+          }
+        },
+        {
+          "name": "Get Single Event",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/events/{{event_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["events", "{{event_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Event (Admin/Organizer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Tech Conference\",\n  \"description\": \"A conference about emerging technologies\",\n  \"date\": \"2025-09-15T10:00:00.000Z\",\n  \"startTime\": \"10:00\",\n  \"endTime\": \"18:00\",\n  \"location\": \"Tech Center, Silicon Valley\",\n  \"organizer\": \"{{organizer_id}}\",\n  \"totalTickets\": 500,\n  \"ticketPrice\": 299.99\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/events",
+              "host": ["{{api_url}}"],
+              "path": ["events"]
+            }
+          }
+        },
+        {
+          "name": "Update Event (Admin/Organizer)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Tech Conference\",\n  \"description\": \"An updated description for the tech conference\",\n  \"totalTickets\": 600\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/events/{{event_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["events", "{{event_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Event (Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/events/{{event_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["events", "{{event_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎫 Tickets",
+      "item": [
+        {
+          "name": "Get All Tickets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.length > 0) {",
+                  "        pm.collectionVariables.set('ticket_id', jsonData.data[0]._id);",
+                  "        console.log('Ticket ID saved:', jsonData.data[0]._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/tickets",
+              "host": ["{{api_url}}"],
+              "path": ["tickets"]
+            }
+          }
+        },
+        {
+          "name": "Get Single Ticket",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/tickets/{{ticket_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["tickets", "{{ticket_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"{{event_id}}\",\n  \"user\": \"{{user_id}}\",\n  \"ticketType\": \"general\",\n  \"price\": 99.99,\n  \"status\": \"confirmed\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/tickets",
+              "host": ["{{api_url}}"],
+              "path": ["tickets"]
+            }
+          }
+        },
+        {
+          "name": "Update Ticket",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"used\",\n  \"ticketType\": \"vip\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/tickets/{{ticket_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["tickets", "{{ticket_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Verify Ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketId\": \"{{ticket_id}}\",\n  \"verificationCode\": \"VERIFY123\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/tickets/verify",
+              "host": ["{{api_url}}"],
+              "path": ["tickets", "verify"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Users",
+      "item": [
+        {
+          "name": "Get All Users (Test Route)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/users/test",
+              "host": ["{{api_url}}"],
+              "path": ["users", "test"]
+            }
+          }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/users",
+              "host": ["{{api_url}}"],
+              "path": ["users"]
+            }
+          }
+        },
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/users/{{user_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Updated Doe\",\n  \"bio\": \"Updated bio information\",\n  \"phone\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/users/{{user_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏢 Organizers",
+      "item": [
+        {
+          "name": "Get All Organizers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.organizers && jsonData.data.organizers.length > 0) {",
+                  "        pm.collectionVariables.set('organizer_id', jsonData.data.organizers[0]._id);",
+                  "        console.log('Organizer ID saved:', jsonData.data.organizers[0]._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/organizers",
+              "host": ["{{api_url}}"],
+              "path": ["organizers"]
+            }
+          }
+        },
+        {
+          "name": "Get Single Organizer",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/organizers/{{organizer_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["organizers", "{{organizer_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Organizer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tech Events Co\",\n  \"description\": \"Leading technology event organizer\",\n  \"contactEmail\": \"contact@techevents.co\",\n  \"phone\": \"+1-555-0123\",\n  \"website\": \"https://techevents.co\",\n  \"address\": \"123 Tech Street, Silicon Valley, CA\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/organizers",
+              "host": ["{{api_url}}"],
+              "path": ["organizers"]
+            }
+          }
+        },
+        {
+          "name": "Update Organizer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Tech Events Co\",\n  \"description\": \"Leading technology and innovation event organizer\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/organizers/{{organizer_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["organizers", "{{organizer_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📝 Registrations",
+      "item": [
+        {
+          "name": "Get All Registrations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.length > 0) {",
+                  "        pm.collectionVariables.set('registration_id', jsonData.data[0]._id);",
+                  "        console.log('Registration ID saved:', jsonData.data[0]._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/registrations",
+              "host": ["{{api_url}}"],
+              "path": ["registrations"]
+            }
+          }
+        },
+        {
+          "name": "Get Single Registration",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/registrations/{{registration_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["registrations", "{{registration_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"{{event_id}}\",\n  \"user\": \"{{user_id}}\",\n  \"registrationDate\": \"2025-08-06T10:00:00.000Z\",\n  \"status\": \"confirmed\",\n  \"paymentStatus\": \"paid\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/registrations",
+              "host": ["{{api_url}}"],
+              "path": ["registrations"]
+            }
+          }
+        },
+        {
+          "name": "Update Registration",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"attended\",\n  \"paymentStatus\": \"paid\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/registrations/{{registration_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["registrations", "{{registration_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💬 Feedback",
+      "item": [
+        {
+          "name": "Get All Feedback",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.length > 0) {",
+                  "        pm.collectionVariables.set('feedback_id', jsonData.data[0]._id);",
+                  "        console.log('Feedback ID saved:', jsonData.data[0]._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/feedback",
+              "host": ["{{api_url}}"],
+              "path": ["feedback"]
+            }
+          }
+        },
+        {
+          "name": "Get Single Feedback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/feedback/{{feedback_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["feedback", "{{feedback_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"{{event_id}}\",\n  \"user\": \"{{user_id}}\",\n  \"rating\": 5,\n  \"comment\": \"Excellent event! Very well organized and informative.\",\n  \"category\": \"overall\",\n  \"anonymous\": false\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/feedback",
+              "host": ["{{api_url}}"],
+              "path": ["feedback"]
+            }
+          }
+        },
+        {
+          "name": "Update Feedback",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Updated: Great event, could be improved with better networking sessions.\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/feedback/{{feedback_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["feedback", "{{feedback_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔧 Admin",
+      "item": [
+        {
+          "name": "Get Activity Log (Public Test)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/admin/activity",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "activity"]
+            }
+          }
+        },
+        {
+          "name": "Get All Admin Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.length > 0) {",
+                  "        pm.collectionVariables.set('admin_id', jsonData.data[0]._id);",
+                  "        console.log('Admin ID saved:', jsonData.data[0]._id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/admin/admin-users",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "admin-users"]
+            }
+          }
+        },
+        {
+          "name": "Create Admin User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"admin@thrillathon.com\",\n  \"password\": \"adminpass123\",\n  \"role\": \"admin\",\n  \"permissions\": [\"manage_events\", \"manage_users\", \"view_analytics\"]\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/admin/admin-users",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "admin-users"]
+            }
+          }
+        },
+        {
+          "name": "Update Admin User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Admin User\",\n  \"permissions\": [\"manage_events\", \"manage_users\", \"view_analytics\", \"manage_organizers\"]\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/admin/admin-users/{{admin_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "admin-users", "{{admin_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Admin User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/admin/admin-users/{{admin_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "admin-users", "{{admin_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get All Employees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/admin/employees",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "employees"]
+            }
+          }
+        },
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Employee Name\",\n  \"email\": \"employee@thrillathon.com\",\n  \"position\": \"Event Coordinator\",\n  \"department\": \"Events\",\n  \"permissions\": [\"view_events\", \"create_events\"]\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/admin/employees",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "employees"]
+            }
+          }
+        },
+        {
+          "name": "Update Employee Permissions",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"employee_id_here\",\n  \"permissions\": [\"view_events\", \"create_events\", \"update_events\"]\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/admin/employees/permissions",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "employees", "permissions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔍 Utility & Testing",
+      "item": [
+        {
+          "name": "API Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/health",
+              "host": ["{{api_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Root Endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            }
+          }
+        },
+        {
+          "name": "Test Server Connection",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Server is reachable', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains expected message', function () {",
+                  "    const responseText = pm.response.text();",
+                  "    pm.expect(responseText).to.include('Hello');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Pre-request script to ensure variables are available",
+          "console.log('Base URL:', pm.collectionVariables.get('base_url'));",
+          "console.log('JWT Token:', pm.collectionVariables.get('jwt_token') ? 'Set' : 'Not Set');",
+          "",
+          "// Set default headers if token exists",
+          "const token = pm.collectionVariables.get('jwt_token');",
+          "if (token) {",
+          "    pm.request.headers.add({",
+          "        key: 'Authorization',",
+          "        value: 'Bearer ' + token",
+          "    });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test script",
+          "pm.test('Response status code is valid', function () {",
+          "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);",
+          "});",
+          "",
+          "// Log response for debugging",
+          "console.log('Response Status:', pm.response.status);",
+          "console.log('Response Time:', pm.response.responseTime + 'ms');"
+        ]
+      }
+    }
+  ]
+}
