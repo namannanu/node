@@ -1,7 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const colors = require('colors');
-const morgan = require('morgan');
 const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const connectDB = require('../src/config/db');
@@ -45,7 +43,12 @@ app.use(cookieParser());
 
 // Only use morgan in development
 if (process.env.NODE_ENV !== 'production') {
-  app.use(morgan('dev'));
+  try {
+    const morgan = require('morgan');
+    app.use(morgan('dev'));
+  } catch (e) {
+    console.log('Morgan not available in production');
+  }
 }
 
 // Import and use feature routes with error handling
