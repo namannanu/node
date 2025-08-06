@@ -1,4 +1,4 @@
-const { rekognition } = require('./aws.config');
+const { rekognition } = require('../../config/aws-robust');
 const { 
   IndexFacesCommand, 
   SearchFacesByImageCommand, 

@@ -2,22 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/serverless.js",
+      "src": "api/index.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/api/serverless.js",
-      "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+      "dest": "/api/index.js"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "functions": {
-    "api/serverless.js": {
+    "api/index.js": {
       "maxDuration": 30
     }
   }

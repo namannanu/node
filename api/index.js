@@ -48,25 +48,62 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
-// Import and use feature routes
-const eventRoutes = require('../src/features/events/event.routes');
-const organizerRoutes = require('../src/features/organizers/organizer.routes');  
-const ticketRoute = require('../src/features/tickets/ticket.routes');
-const feedbackRoutes = require('../src/features/feedback/feedback.routes');
-const adminRoutes = require('../src/features/admin/admin.routes');
-const registrationRoutes = require('../src/features/registrations/userEventRegistration.routes');
-const userRoutesNew = require('../src/features/users/user.routes');
-const authRoutes = require('../src/features/auth/auth.routes');
+// Import and use feature routes with error handling
+try {
+  const authRoutes = require('../src/features/auth/auth.routes');
+  app.use('/api/auth', authRoutes);
+} catch (error) {
+  console.warn('Auth routes failed to load:', error.message);
+}
 
-// Use feature routes
-app.use('/api/auth', authRoutes);
-app.use('/api/events', eventRoutes);
-app.use('/api/organizers', organizerRoutes);
-app.use('/api/tickets', ticketRoute);
-app.use('/api/feedback', feedbackRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/registrations', registrationRoutes);
-app.use('/api/users', userRoutesNew);
+try {
+  const eventRoutes = require('../src/features/events/event.routes');
+  app.use('/api/events', eventRoutes);
+} catch (error) {
+  console.warn('Event routes failed to load:', error.message);
+}
+
+try {
+  const organizerRoutes = require('../src/features/organizers/organizer.routes');  
+  app.use('/api/organizers', organizerRoutes);
+} catch (error) {
+  console.warn('Organizer routes failed to load:', error.message);
+}
+
+try {
+  const ticketRoute = require('../src/features/tickets/ticket.routes');
+  app.use('/api/tickets', ticketRoute);
+} catch (error) {
+  console.warn('Ticket routes failed to load:', error.message);
+}
+
+try {
+  const feedbackRoutes = require('../src/features/feedback/feedback.routes');
+  app.use('/api/feedback', feedbackRoutes);
+} catch (error) {
+  console.warn('Feedback routes failed to load:', error.message);
+}
+
+try {
+  const adminRoutes = require('../src/features/admin/admin.routes');
+  app.use('/api/admin', adminRoutes);
+} catch (error) {
+  console.warn('Admin routes failed to load:', error.message);
+}
+
+try {
+  const registrationRoutes = require('../src/features/registrations/userEventRegistration.routes');
+  app.use('/api/registrations', registrationRoutes);
+} catch (error) {
+  console.warn('Registration routes failed to load:', error.message);
+}
+
+try {
+  const userRoutesNew = require('../src/features/users/user.routes');
+  app.use('/api/users', userRoutesNew);
+} catch (error) {
+  console.warn('User routes failed to load (AWS dependency issue):', error.message);
+}
 
 // Basic Routes
 app.get('/favicon.ico', (req, res) => res.status(204).end());

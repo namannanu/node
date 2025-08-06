@@ -1,4 +1,4 @@
-const { s3 } = require('./aws.config');
+const { s3 } = require('../../config/aws-robust');
 const { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 

@@ -1,7 +1,7 @@
 const catchAsync = require('../../shared/utils/catchAsync');
 const AppError = require('../../shared/utils/appError');
 const User = require('./user.model');
-const { rekognition } = require('../aws/aws.config');
+const { rekognition } = require('../../config/aws-robust');
 
 exports.getAllUsers = catchAsync(async (req, res, next) => {
   const users = await User.find().select('-password');
