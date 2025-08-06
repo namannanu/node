@@ -9,11 +9,10 @@ test/
 tests/
 *.test.js
 *.spec.js
-coverage/
 .nyc_output/
 .git/
 .gitignore
 README.md
 docs/
 scripts/test*
-scripts/dev*
+scripts/dev

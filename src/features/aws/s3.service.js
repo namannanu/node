@@ -1,19 +1,6 @@
 const { s3 } = require('../../config/aws-robust');
-
-// Dynamic import of AWS SDK commands based on version
-let PutObjectCommand, DeleteObjectCommand, GetObjectCommand, getSignedUrl;
-
-try {
-  // Try AWS SDK v3 commands
-  const s3Commands = require('@aws-sdk/client-s3');
-  const presigner = require('@aws-sdk/s3-request-presigner');
-  PutObjectCommand = s3Commands.PutObjectCommand;
-  DeleteObjectCommand = s3Commands.DeleteObjectCommand;
-  GetObjectCommand = s3Commands.GetObjectCommand;
-  getSignedUrl = presigner.getSignedUrl;
-} catch (error) {
-  console.log('AWS SDK v3 S3 commands not available, using v2 compatibility');
-}
+const { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const bucketName = process.env.S3_BUCKET_NAME || 'nfacialimagescollections';
 
@@ -22,31 +9,14 @@ const s3Service = {
     const key = `face-images/${Date.now()}-${fileName}`;
     
     try {
-      // AWS SDK v3
-      if (s3.send && PutObjectCommand) {
-        const command = new PutObjectCommand({
-          Bucket: bucketName,
-          Key: key,
-          Body: fileBuffer,
-          ContentType: contentType,
-          ACL: 'public-read'
-        });
-        await s3.send(command);
-      }
-      // AWS SDK v2
-      else if (s3.upload) {
-        await s3.upload({
-          Bucket: bucketName,
-          Key: key,
-          Body: fileBuffer,
-          ContentType: contentType,
-          ACL: 'public-read'
-        }).promise();
-      }
-      // Fallback
-      else {
-        return { success: false, error: 'AWS S3 not available' };
-      }
+      const command = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: key,
+        Body: fileBuffer,
+        ContentType: contentType,
+        ACL: 'public-read'
+      });
+      await s3.send(command);
 
       const url = `https://${bucketName}.s3.${process.env.AWS_REGION || 'ap-south-1'}.amazonaws.com/${key}`;
       
