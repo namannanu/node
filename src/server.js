@@ -52,6 +52,7 @@ const adminRoutes = require('./features/admin/admin.routes');
 const registrationRoutes = require('./features/registrations/userEventRegistration.routes');
 const userRoutesNew = require('./features/users/user.routes');
 const authRoutes = require('./features/auth/auth.routes');
+const amplifyRoutes = require('./features/aws/routes/amplify');
 
 // Use feature routes
 app.use('/api/auth', authRoutes);
@@ -62,6 +63,7 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/users', userRoutesNew);
+app.use('/api', amplifyRoutes);
 
 // Basic Routes
 app.get('/favicon.ico', (req, res) => res.status(204).end());
