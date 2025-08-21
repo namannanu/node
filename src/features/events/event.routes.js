@@ -6,10 +6,13 @@ const router = express.Router();
 
 router.get('/stats', eventController.getEventStats);
 
+// Public route - no authentication required
+router.get('/', eventController.getAllEvents);
+
+// Apply authentication middleware to all routes below this point
 router.use(authMiddleware.protect);
 
 router.route('/')
-  .get(eventController.getAllEvents)
   .post(authMiddleware.restrictTo('admin', 'organizer'), eventController.createEvent);
 
 router.route('/:id')
