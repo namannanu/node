@@ -343,7 +343,11 @@ router.get("/aws-status", (req, res) => {
             region: process.env.AWS_REGION || "ap-south-1",
             hasAccessKey: !!(process.env.AWS_ACCESS_KEY_ID || process.env.ACCESS_KEY_ID),
             hasSecretKey: !!(process.env.AWS_SECRET_ACCESS_KEY || process.env.SECRET_ACCESS_KEY),
-            bucketName: "nfacialimagescollections"
+            bucketName: "nfacialimagescollections",
+            // Debug info
+            accessKeyLength: process.env.ACCESS_KEY_ID ? process.env.ACCESS_KEY_ID.length : (process.env.AWS_ACCESS_KEY_ID ? process.env.AWS_ACCESS_KEY_ID.length : 0),
+            secretKeyLength: process.env.SECRET_ACCESS_KEY ? process.env.SECRET_ACCESS_KEY.length : (process.env.AWS_SECRET_ACCESS_KEY ? process.env.AWS_SECRET_ACCESS_KEY.length : 0),
+            credentialSource: process.env.ACCESS_KEY_ID ? "ACCESS_KEY_ID" : (process.env.AWS_ACCESS_KEY_ID ? "AWS_ACCESS_KEY_ID" : "none")
         },
         authentication: {
             required: true,
