@@ -41,10 +41,10 @@ const upload = multer({
     storage: storage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
     fileFilter: (req, file, cb) => {
-        if (file.mimetype === "image/jpeg" || file.mimetype === "image/png" || file.mimetype === "image/webp") {
+        if (file.mimetype === "image/jpeg" || file.mimetype === "image/png" ) {
             cb(null, true);
         } else {
-            cb(new Error("Invalid file type. Only JPEG, PNG, and WebP are allowed."), false);
+            cb(new Error("Invalid file type. Only JPEG and PNG are allowed."), false);
         }
     }
 });
@@ -105,8 +105,9 @@ router.post("/upload", upload.single("image"), async (req, res) => {
         // Fallback: Base64 data URI (works without AWS credentials)
         console.log("[DEBUG] Using fallback storage (base64 data URI)...");
         
+        // Store the base64 data but return a simple URL-like identifier
         const base64Data = req.file.buffer.toString('base64');
-        const dataUri = `data:${req.file.mimetype};base64,${base64Data}`;
+        const fallbackUrl = `fallback://uploaded/${filename}.${req.file.mimetype.split('/')[1]}`;
         
         const fileInfo = {
             filename: filename,
@@ -122,11 +123,10 @@ router.post("/upload", upload.single("image"), async (req, res) => {
         
         res.status(200).json({ 
             success: true, 
-            fileUrl: dataUri,
+            fileUrl: fallbackUrl,
             storage: "base64_fallback",
-            message: "File uploaded successfully using fallback method (AWS credentials not available)",
-            fileInfo: fileInfo,
-            note: "File stored as base64 data URI. For production use, consider configuring AWS credentials or using alternative storage services."
+            message: "File uploaded successfully using fallback method",
+            fileInfo: fileInfo
         });
 
     } catch (err) {
