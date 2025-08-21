@@ -117,7 +117,7 @@ const upload = multer({
 });
 
 // Upload Image with AWS S3 (Protected Route)
-router.post("/upload", verifyToken, upload.single("image"), async (req, res) => {
+router.post("/upload/:userId", verifyToken, upload.single("image"), async (req, res) => {
     try {
         console.log("[DEBUG] Upload route hit.");
 
@@ -126,8 +126,16 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
             return res.status(400).json({ success: false, msg: "No file uploaded" });
         }
 
-        const userId = req.user.userId;
-        const fullname = req.user.fullname;
+        const userId = req.params.userId; // Get from URL parameter
+        const fullname = req.user.fullname; // Get from JWT token
+        
+        // Optional: Verify that the token userId matches the parameter userId
+        if (req.user.userId !== userId) {
+            return res.status(403).json({ 
+                success: false, 
+                message: "Token userId does not match the parameter userId" 
+            });
+        }
         
         // Check if user already has an uploaded image
         if (userUploads.has(userId)) {
@@ -139,7 +147,7 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `${userId}_${timestamp}`;
+        const filename = `${userId}_${fullname}`; // Format: userid_fullname
 
         // AWS S3 upload only - no fallback
         if (!s3Available || !s3) {
@@ -158,7 +166,8 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
                 ContentType: req.file.mimetype,
                 Metadata: { 
                     fullname: fullname,
-                    userId: userId 
+                    userId: userId,
+                    uploadedAt: timestamp
                 },
             };
 
@@ -214,9 +223,17 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
 });
 
 // Delete user's uploaded image (Protected Route)
-router.delete("/delete", verifyToken, async (req, res) => {
+router.delete("/delete/:userId", verifyToken, async (req, res) => {
     try {
-        const userId = req.user.userId;
+        const userId = req.params.userId; // Get from URL parameter
+        
+        // Optional: Verify that the token userId matches the parameter userId
+        if (req.user.userId !== userId) {
+            return res.status(403).json({ 
+                success: false, 
+                message: "Token userId does not match the parameter userId" 
+            });
+        }
         
         // Check if user has an uploaded image
         if (!userUploads.has(userId)) {
@@ -269,8 +286,16 @@ router.delete("/delete", verifyToken, async (req, res) => {
 });
 
 // Get user's uploaded image info (Protected Route)
-router.get("/my-upload", verifyToken, (req, res) => {
-    const userId = req.user.userId;
+router.get("/my-upload/:userId", verifyToken, (req, res) => {
+    const userId = req.params.userId; // Get from URL parameter
+    
+    // Optional: Verify that the token userId matches the parameter userId
+    if (req.user.userId !== userId) {
+        return res.status(403).json({ 
+            success: false, 
+            message: "Token userId does not match the parameter userId" 
+        });
+    }
     
     if (!userUploads.has(userId)) {
         return res.status(404).json({ 
@@ -288,8 +313,16 @@ router.get("/my-upload", verifyToken, (req, res) => {
 });
 
 // Get user's image data (S3 URL only)
-router.get("/retrieve-image", verifyToken, (req, res) => {
-    const userId = req.user.userId;
+router.get("/retrieve-image/:userId", verifyToken, (req, res) => {
+    const userId = req.params.userId; // Get from URL parameter
+    
+    // Optional: Verify that the token userId matches the parameter userId
+    if (req.user.userId !== userId) {
+        return res.status(403).json({ 
+            success: false, 
+            message: "Token userId does not match the parameter userId" 
+        });
+    }
     
     if (!userUploads.has(userId)) {
         return res.status(404).json({ 
