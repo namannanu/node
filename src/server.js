@@ -18,6 +18,9 @@ dotenv.config({
 console.log('Environment check:');
 console.log('MONGO_URI:', process.env.MONGO_URI ? 'Found' : 'NOT FOUND');
 console.log('PORT:', process.env.PORT || 'Using default 3000');
+console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? 'Found' : 'NOT FOUND');
+console.log('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? 'Found' : 'NOT FOUND');
+console.log('AWS_REGION:', process.env.AWS_REGION || 'ap-south-1');
 
 // CORS Configuration
 const corsOptions = {
@@ -29,8 +32,9 @@ const corsOptions = {
     'http://127.0.0.1:8080',
     'http://127.0.0.1:8081',
     'http://127.0.0.1:3000',
-    'http://127.0.0.1:5173'
-  ],
+    'http://127.0.0.1:5173',
+    process.env.FRONTEND_URL // Your Vercel frontend URL
+  ].filter(Boolean),
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -39,7 +43,7 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(express.json()); 
+app.use(express.json({ limit: '10mb' })); 
 app.use(cookieParser());
 app.use(morgan('dev'));
 
@@ -75,7 +79,24 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'success',
     message: 'API is working!',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// AWS status check endpoint
+app.get('/api/aws-status', (req, res) => {
+  // Import the S3 client from amplify route to check status
+  const amplifyRouter = require('./features/aws/routes/amplify');
+  
+  // This is a simplified check - in practice you might want to 
+  // expose the s3Available status from your amplify module
+  res.status(200).json({
+    status: 'success',
+    awsConfigured: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
+    awsRegion: process.env.AWS_REGION || 'ap-south-1',
+    bucket: 'nfacialimagescollections',
+    message: 'AWS status check complete'
   });
 });
 
@@ -203,6 +224,10 @@ const startServer = async () => {
       console.log(`✅ Server running on: http://localhost:${PORT}`.blue.underline.bold);
       console.log('🎉 Server is ready to accept requests!'.green.bold);
       console.log('📡 API endpoints are now available'.cyan);
+      console.log('🌐 AWS S3 Status:', 
+        (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) 
+        ? 'Configured'.green 
+        : 'Not Configured'.red);
     });
     
     // Handle graceful shutdown

@@ -1,6 +1,6 @@
 const express = require("express");
 const multer = require("multer");
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+const { S3Client, PutObjectCommand, DeleteObjectCommand, ListBucketsCommand } = require("@aws-sdk/client-s3");
 const { fromNodeProviderChain } = require("@aws-sdk/credential-providers");
 const jwt = require('jsonwebtoken');
 
@@ -70,29 +70,33 @@ try {
         region: process.env.AWS_REGION || "ap-south-1"
     };
 
-    // Use explicit credentials if provided, otherwise fallback to credential chain
-    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    // Check for Vercel environment variables first
+    // Vercel uses different naming conventions sometimes
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID || process.env.ACCESS_KEY_ID;
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || process.env.SECRET_ACCESS_KEY;
+    
+    if (accessKeyId && secretAccessKey) {
         awsConfig.credentials = {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+            accessKeyId: accessKeyId,
+            secretAccessKey: secretAccessKey
         };
-        console.log("[DEBUG] Using explicit AWS credentials");
-    } else if (process.env.ACCESS_KEY_ID && process.env.SECRET_ACCESS_KEY) {
-        // Fallback for alternative naming
-        awsConfig.credentials = {
-            accessKeyId: process.env.ACCESS_KEY_ID,
-            secretAccessKey: process.env.SECRET_ACCESS_KEY
-        };
-        console.log("[DEBUG] Using explicit AWS credentials (alt naming)");
+        console.log("[DEBUG] Using explicit AWS credentials from environment variables");
     } else {
-        // Fallback to credential provider chain (IAM roles, etc.)
-        awsConfig.credentials = fromNodeProviderChain();
-        console.log("[DEBUG] Using AWS credential provider chain");
+        // Fallback to credential provider chain (for local development)
+        try {
+            awsConfig.credentials = fromNodeProviderChain();
+            console.log("[DEBUG] Using AWS credential provider chain");
+        } catch (credError) {
+            console.warn("[WARN] No AWS credentials found in environment or credential chain");
+            s3Available = false;
+        }
     }
 
-    s3 = new S3Client(awsConfig);
-    s3Available = true;
-    console.log("[DEBUG] S3 client initialized successfully");
+    if (awsConfig.credentials) {
+        s3 = new S3Client(awsConfig);
+        s3Available = true;
+        console.log("[DEBUG] S3 client initialized successfully");
+    }
 } catch (s3Error) {
     console.error("[ERROR] S3 client initialization failed:", s3Error.message);
     s3Available = false;
@@ -104,15 +108,15 @@ const upload = multer({
     storage: storage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
     fileFilter: (req, file, cb) => {
-        if (file.mimetype === "image/jpeg" || file.mimetype === "image/png" ) {
+        if (file.mimetype === "image/jpeg" || file.mimetype === "image/png" || file.mimetype === "image/jpg") {
             cb(null, true);
         } else {
-            cb(new Error("Invalid file type. Only JPEG and PNG are allowed."), false);
+            cb(new Error("Invalid file type. Only JPEG, JPG and PNG are allowed."), false);
         }
     }
 });
 
-// Upload Image with AWS S3 fallback (Protected Route)
+// Upload Image with AWS S3 (Protected Route)
 router.post("/upload", verifyToken, upload.single("image"), async (req, res) => {
     try {
         console.log("[DEBUG] Upload route hit.");
@@ -162,7 +166,7 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
             await s3.send(new PutObjectCommand(params));
             console.log("[DEBUG] S3 upload successful.");
 
-            const fileUrl = `https://nfacialimagescollections.s3.ap-south-1.amazonaws.com/${params.Key}`;
+            const fileUrl = `https://nfacialimagescollections.s3.${process.env.AWS_REGION || 'ap-south-1'}.amazonaws.com/public/${filename}`;
             
             const uploadData = {
                 filename: filename,
@@ -174,7 +178,7 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
                 uploadedAt: timestamp,
                 storage: "aws_s3",
                 fileUrl: fileUrl,
-                s3Key: params.Key
+                s3Key: `public/${filename}`
             };
 
             // Store user upload info
@@ -337,8 +341,8 @@ router.get("/aws-status", (req, res) => {
         aws: {
             s3Available: s3Available,
             region: process.env.AWS_REGION || "ap-south-1",
-            hasAccessKey: !!(process.env.ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID),
-            hasSecretKey: !!(process.env.SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY),
+            hasAccessKey: !!(process.env.AWS_ACCESS_KEY_ID || process.env.ACCESS_KEY_ID),
+            hasSecretKey: !!(process.env.AWS_SECRET_ACCESS_KEY || process.env.SECRET_ACCESS_KEY),
             bucketName: "nfacialimagescollections"
         },
         authentication: {
@@ -351,6 +355,39 @@ router.get("/aws-status", (req, res) => {
         },
         message: s3Available ? "AWS S3 is available and ready for uploads" : "S3 unavailable - check credentials"
     });
+});
+
+// Test S3 connection endpoint
+router.get("/test-s3-connection", async (req, res) => {
+    if (!s3Available) {
+        return res.status(503).json({
+            success: false,
+            message: "S3 client not available",
+            error: "Check AWS credentials and configuration"
+        });
+    }
+
+    try {
+        // Try to list buckets to test connection
+        const command = new ListBucketsCommand({});
+        const data = await s3.send(command);
+        
+        res.json({
+            success: true,
+            message: "S3 connection successful",
+            bucketCount: data.Buckets ? data.Buckets.length : 0,
+            region: process.env.AWS_REGION || "ap-south-1"
+        });
+    } catch (error) {
+        console.error("[ERROR] S3 connection test failed:", error.message);
+        
+        res.status(500).json({
+            success: false,
+            message: "S3 connection test failed",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Connection error",
+            code: error.name
+        });
+    }
 });
 
 // Test upload endpoint (Protected Route - returns file info without actual upload)
