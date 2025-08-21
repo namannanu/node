@@ -137,90 +137,66 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const filename = `${userId}_${timestamp}`;
 
-        // Try AWS S3 upload first (if available and credentials work)
-        if (s3Available && s3) {
-            try {
-                const params = {
-                    Bucket: "nfacialimagescollections",
-                    Key: `public/${filename}`,
-                    Body: req.file.buffer,
-                    ContentType: req.file.mimetype,
-                    Metadata: { 
-                        fullname: fullname,
-                        userId: userId 
-                    },
-                };
-
-                console.log("[DEBUG] Attempting S3 upload...");
-                await s3.send(new PutObjectCommand(params));
-                console.log("[DEBUG] S3 upload successful.");
-
-                const fileUrl = `https://nfacialimagescollections.s3.ap-south-1.amazonaws.com/${params.Key}`;
-                
-                const uploadData = {
-                    filename: filename,
-                    originalName: req.file.originalname,
-                    size: req.file.size,
-                    mimetype: req.file.mimetype,
-                    uploadedBy: fullname,
-                    userId: userId,
-                    uploadedAt: timestamp,
-                    storage: "aws_s3",
-                    fileUrl: fileUrl,
-                    s3Key: params.Key
-                };
-
-                // Store user upload info
-                userUploads.set(userId, uploadData);
-
-                return res.status(200).json({ 
-                    success: true, 
-                    fileUrl,
-                    storage: "aws_s3",
-                    message: "File uploaded to AWS S3 successfully",
-                    fileInfo: uploadData
-                });
-
-            } catch (s3Error) {
-                console.warn("[WARN] S3 upload failed, using fallback storage:", s3Error.message);
-                // Mark S3 as unavailable for future requests in this session
-                s3Available = false;
-                // Continue to fallback below
-            }
+        // AWS S3 upload only - no fallback
+        if (!s3Available || !s3) {
+            return res.status(503).json({ 
+                success: false, 
+                message: "S3 service unavailable. Please check AWS credentials.",
+                error: "S3_UNAVAILABLE"
+            });
         }
 
-        // Fallback: Base64 data URI (works without AWS credentials)
-        console.log("[DEBUG] Using fallback storage (base64 data URI)...");
-        
-        // Store the base64 data but return a simple URL-like identifier
-        const base64Data = req.file.buffer.toString('base64');
-        const fallbackUrl = `fallback://uploaded/${filename}.${req.file.mimetype.split('/')[1]}`;
-        
-        const uploadData = {
-            filename: filename,
-            originalName: req.file.originalname,
-            mimetype: req.file.mimetype,
-            size: req.file.size,
-            uploadedBy: fullname,
-            userId: userId,
-            uploadedAt: timestamp,
-            storage: "base64_fallback",
-            fileUrl: fallbackUrl,
-            base64Data: base64Data // Store for potential retrieval
-        };
+        try {
+            const params = {
+                Bucket: "nfacialimagescollections",
+                Key: `public/${filename}`,
+                Body: req.file.buffer,
+                ContentType: req.file.mimetype,
+                Metadata: { 
+                    fullname: fullname,
+                    userId: userId 
+                },
+            };
 
-        // Store user upload info
-        userUploads.set(userId, uploadData);
+            console.log("[DEBUG] Attempting S3 upload...");
+            await s3.send(new PutObjectCommand(params));
+            console.log("[DEBUG] S3 upload successful.");
 
-        console.log("[DEBUG] Fallback upload successful.");
-        
-        res.status(200).json({ 
-            success: true, 
-            fileUrl: fallbackUrl,
-            storage: "base64_fallback",
-            message: "File uploaded successfully using fallback method",
-            fileInfo: uploadData
-        });
+            const fileUrl = `https://nfacialimagescollections.s3.ap-south-1.amazonaws.com/${params.Key}`;
+            
+            const uploadData = {
+                filename: filename,
+                originalName: req.file.originalname,
+                size: req.file.size,
+                mimetype: req.file.mimetype,
+                uploadedBy: fullname,
+                userId: userId,
+                uploadedAt: timestamp,
+                storage: "aws_s3",
+                fileUrl: fileUrl,
+                s3Key: params.Key
+            };
+
+            // Store user upload info
+            userUploads.set(userId, uploadData);
+
+            return res.status(200).json({ 
+                success: true, 
+                fileUrl,
+                storage: "aws_s3",
+                message: "File uploaded to AWS S3 successfully",
+                fileInfo: uploadData
+            });
+
+        } catch (s3Error) {
+            console.error("[ERROR] S3 upload failed:", s3Error.message);
+            
+            return res.status(500).json({ 
+                success: false, 
+                message: "Failed to upload to S3",
+                error: process.env.NODE_ENV === 'development' ? s3Error.message : "S3_UPLOAD_FAILED"
+            });
+        }
 
     } catch (err) {
         console.error("[ERROR] Upload Failed:", err);
@@ -300,20 +276,14 @@ router.get("/my-upload", verifyToken, (req, res) => {
     }
 
     const uploadData = userUploads.get(userId);
-    
-    // Remove sensitive data before sending
-    const safeUploadData = {
-        ...uploadData,
-        base64Data: uploadData.base64Data ? '[BASE64_DATA_HIDDEN]' : undefined
-    };
 
     res.status(200).json({ 
         success: true, 
-        uploadInfo: safeUploadData
+        uploadInfo: uploadData
     });
 });
 
-// Get user's image data (for fallback storage retrieval)
+// Get user's image data (S3 URL only)
 router.get("/retrieve-image", verifyToken, (req, res) => {
     const userId = req.user.userId;
     
@@ -332,14 +302,6 @@ router.get("/retrieve-image", verifyToken, (req, res) => {
             fileUrl: uploadData.fileUrl,
             storage: "aws_s3",
             message: "Image available via S3 URL"
-        });
-    } else if (uploadData.storage === "base64_fallback" && uploadData.base64Data) {
-        const dataUri = `data:${uploadData.mimetype};base64,${uploadData.base64Data}`;
-        return res.status(200).json({ 
-            success: true, 
-            fileUrl: dataUri,
-            storage: "base64_fallback",
-            message: "Image retrieved from fallback storage"
         });
     }
 
@@ -377,12 +339,7 @@ router.get("/aws-status", (req, res) => {
             region: process.env.AWS_REGION || "ap-south-1",
             hasAccessKey: !!(process.env.ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID),
             hasSecretKey: !!(process.env.SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY),
-            credentialMethod: (process.env.ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID) ? "explicit_keys" : "credential_provider_chain",
             bucketName: "nfacialimagescollections"
-        },
-        fallback: {
-            available: true,
-            method: "base64_data_uri"
         },
         authentication: {
             required: true,
@@ -392,7 +349,7 @@ router.get("/aws-status", (req, res) => {
             oneImagePerUser: true,
             totalActiveUploads: userUploads.size
         },
-        message: s3Available ? "AWS S3 is available" : "Using fallback storage method"
+        message: s3Available ? "AWS S3 is available and ready for uploads" : "S3 unavailable - check credentials"
     });
 });
 
