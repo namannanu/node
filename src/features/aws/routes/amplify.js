@@ -10,10 +10,24 @@ let s3;
 let s3Available = false;
 
 try {
-    s3 = new S3Client({
-        region: "ap-south-1",
-        credentials: fromNodeProviderChain(),
-    });
+    const awsConfig = {
+        region: process.env.AWS_REGION || "ap-south-1"
+    };
+
+    // Use explicit credentials if provided, otherwise fallback to credential chain
+    if (process.env.ACCESS_KEY_ID && process.env.SECRET_ACCESS_KEY) {
+        awsConfig.credentials = {
+            accessKeyId: process.env.ACCESS_KEY_ID,
+            secretAccessKey: process.env.SECRET_ACCESS_KEY
+        };
+        console.log("[DEBUG] Using explicit AWS credentials");
+    } else {
+        // Fallback to credential provider chain (IAM roles, etc.)
+        awsConfig.credentials = fromNodeProviderChain();
+        console.log("[DEBUG] Using AWS credential provider chain");
+    }
+
+    s3 = new S3Client(awsConfig);
     s3Available = true;
     console.log("[DEBUG] S3 client initialized successfully");
 } catch (s3Error) {
@@ -133,8 +147,10 @@ router.get("/aws-status", (req, res) => {
         aws: {
             s3Available: s3Available,
             region: process.env.AWS_REGION || "ap-south-1",
-            hasCredentials: !!s3,
-            credentialProvider: "fromNodeProviderChain"
+            hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+            hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY,
+            credentialMethod: process.env.AWS_ACCESS_KEY_ID ? "explicit_keys" : "credential_provider_chain",
+            bucketName: "nfacialimagescollections"
         },
         fallback: {
             available: true,
