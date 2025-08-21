@@ -71,12 +71,19 @@ try {
     };
 
     // Use explicit credentials if provided, otherwise fallback to credential chain
-    if (process.env.ACCESS_KEY_ID && process.env.SECRET_ACCESS_KEY) {
+    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+        awsConfig.credentials = {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+        };
+        console.log("[DEBUG] Using explicit AWS credentials");
+    } else if (process.env.ACCESS_KEY_ID && process.env.SECRET_ACCESS_KEY) {
+        // Fallback for alternative naming
         awsConfig.credentials = {
             accessKeyId: process.env.ACCESS_KEY_ID,
             secretAccessKey: process.env.SECRET_ACCESS_KEY
         };
-        console.log("[DEBUG] Using explicit AWS credentials");
+        console.log("[DEBUG] Using explicit AWS credentials (alt naming)");
     } else {
         // Fallback to credential provider chain (IAM roles, etc.)
         awsConfig.credentials = fromNodeProviderChain();
@@ -368,9 +375,9 @@ router.get("/aws-status", (req, res) => {
         aws: {
             s3Available: s3Available,
             region: process.env.AWS_REGION || "ap-south-1",
-            hasAccessKey: !!process.env.ACCESS_KEY_ID,
-            hasSecretKey: !!process.env.SECRET_ACCESS_KEY,
-            credentialMethod: process.env.ACCESS_KEY_ID ? "explicit_keys" : "credential_provider_chain",
+            hasAccessKey: !!(process.env.ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID),
+            hasSecretKey: !!(process.env.SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY),
+            credentialMethod: (process.env.ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID) ? "explicit_keys" : "credential_provider_chain",
             bucketName: "nfacialimagescollections"
         },
         fallback: {
