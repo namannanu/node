@@ -74,7 +74,16 @@ const createSendToken = (user, statusCode, res) => {
 
 
 const signup = async (userObj) => {
-  const newUser = await User.create(userObj);
+  // Ensure all fields are properly captured
+  const userData = {
+    ...userObj,
+    uploadedPhoto: userObj.uploadedPhoto || null,  // Initialize uploadedPhoto field
+    verificationStatus: 'pending',  // Set initial verification status
+    updatedAt: new Date(),
+    createdAt: new Date()
+  };
+
+  const newUser = await User.create(userData);
   return newUser;
 };
 

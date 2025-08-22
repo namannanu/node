@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema({
   aadhaarPhoto: { type: String },
   uploadedPhoto: { 
     type: String,
+    default: null,
     description: 'S3 URL for the user\'s uploaded photo (e.g., https://nfacialimagescollections.s3.ap-south-1.amazonaws.com/public/user-id)'
   },
   lastLogin: { type: Date },

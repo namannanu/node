@@ -9,7 +9,10 @@ exports.signup = catchAsync(async (req, res, next) => {
     email: req.body.email,
     password: req.body.password,
     phone: req.body.phone,
-    role: req.body.role || 'user'
+    role: req.body.role || 'user',
+    uploadedPhoto: req.body.uploadedPhoto || null, // Include uploadedPhoto in signup
+    firstname: req.body.name, // Set firstname to name by default
+    lastname: req.body.lastname || ''
   });
 
   authService.createSendToken(newUser, 201, res);
