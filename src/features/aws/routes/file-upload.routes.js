@@ -2,9 +2,33 @@ const express = require("express");
 const multer = require("multer");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const User = require('../../users/user.model');
-const { verifyToken } = require('../../../shared/middlewares/auth');
+const jwt = require('jsonwebtoken');
 
 const router = express.Router();
+
+// Middleware to verify JWT token
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Access token is required' 
+        });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        return res.status(403).json({ 
+            success: false, 
+            message: 'Invalid or expired token' 
+        });
+    }
+};
 
 // Initialize S3 client
 const s3 = new S3Client({
