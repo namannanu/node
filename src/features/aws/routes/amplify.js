@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 
 // Import S3 signed URL service
 const { getSignedImageUrl, checkObjectExists, getMultipleSignedUrls } = require('../s3-signed-url.service');
+const { updateUserAfterUpload } = require('../aws.middleware');
 
 const router = express.Router();
 
@@ -121,7 +122,7 @@ const upload = multer({
 });
 
 // Upload Image with AWS S3 (Protected Route)
-router.post("/upload", verifyToken, upload.single("image"), async (req, res) => {
+router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUpload, async (req, res) => {
     try {
         console.log("[DEBUG] Upload route hit.");
 
@@ -241,11 +242,14 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
             // Store user upload info
             userUploads.set(userId, uploadData);
 
+            // Add fileUrl to the request body for the middleware
+            req.body.fileUrl = fileUrl;
+            
             return res.status(200).json({ 
                 success: true, 
                 fileUrl,
                 storage: "aws_s3",
-                message: "File uploaded to AWS S3 successfully",
+                message: "File uploaded to AWS S3 successfully and user record updated",
                 uploadInfo: {
                     filename: filename,
                     originalName: req.file.originalname,
