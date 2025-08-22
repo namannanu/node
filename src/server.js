@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 const path = require('path');
+const mongoose = require('mongoose'); // Import mongoose
 
 // Initialize Express app first
 const app = express();
@@ -236,6 +237,14 @@ const startServer = async () => {
     console.log('🔄 Establishing database connection...'.yellow);
     await connectDB();
     console.log('✅ Database connection established successfully!'.green.bold);
+    
+    // Add middleware to attach db to every request
+    // This must be added AFTER connecting to the database
+    app.use((req, res, next) => {
+      // Attach mongoose connection to request object
+      req.db = mongoose.connection;
+      next();
+    });
     
     // Only start the server after database is connected
     const server = app.listen(PORT, '0.0.0.0', () => {

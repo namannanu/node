@@ -1,5 +1,6 @@
 const catchAsync = require('../../shared/utils/catchAsync');
 const AWS = require('aws-sdk');
+const mongoose = require('mongoose'); // Import mongoose for ObjectId conversion
 
 // Initialize S3 client with explicit configuration
 const s3 = new AWS.S3({
@@ -31,16 +32,39 @@ const getPresignedUrls = catchAsync(async (req, res) => {
     try {
         // Find user and verify they are in pending status
         console.log('🔍 Looking up user in database...');
-        const user = await req.db.collection('users').findOne({ _id: userId });
+        
+        // Check if req.db is available (from middleware)
+        if (!req.db) {
+            console.log('❌ Database connection not attached to request');
+            return res.status(500).json({
+                success: false,
+                message: 'Database connection error'
+            });
+        }
+
+        // Convert string ID to MongoDB ObjectId
+        let userObjectId;
+        try {
+            userObjectId = new mongoose.Types.ObjectId(userId);
+        } catch (error) {
+            console.log('❌ Invalid user ID format:', userId);
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid user ID format'
+            });
+        }
+
+        const user = await req.db.collection('users').findOne({ _id: userObjectId });
         console.log('👤 User lookup result:', {
             found: !!user,
+            userId: userId,
             status: user?.verificationStatus,
             hasUploadedPhoto: !!user?.uploadedPhoto,
             hasAadhaarPhoto: !!user?.aadhaarPhoto
         });
 
         if (!user) {
-            console.log('❌ User not found');
+            console.log('❌ User not found with ID:', userId);
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
@@ -72,7 +96,10 @@ const getPresignedUrls = catchAsync(async (req, res) => {
                 console.log('✅ Successfully generated uploaded photo URL');
             } catch (error) {
                 console.error('❌ Error generating uploaded photo URL:', error);
+                // Don't fail the entire request if one URL generation fails
             }
+        } else {
+            console.log('ℹ️ No uploaded photo found for user');
         }
 
         // Generate URL for aadhaar photo if it exists
@@ -87,7 +114,10 @@ const getPresignedUrls = catchAsync(async (req, res) => {
                 console.log('✅ Successfully generated aadhaar photo URL');
             } catch (error) {
                 console.error('❌ Error generating aadhaar photo URL:', error);
+                // Don't fail the entire request if one URL generation fails
             }
+        } else {
+            console.log('ℹ️ No aadhaar photo found for user');
         }
 
         console.log('📤 Sending response:', {
@@ -97,7 +127,12 @@ const getPresignedUrls = catchAsync(async (req, res) => {
 
         res.json({
             success: true,
-            urls
+            urls,
+            user: {
+                id: user._id,
+                fullName: user.fullName,
+                verificationStatus: user.verificationStatus
+            }
         });
     } catch (error) {
         console.error('💥 Unexpected error:', error);
@@ -109,5 +144,7 @@ const getPresignedUrls = catchAsync(async (req, res) => {
     }
 });
 
-// Export the function directly (not as an object)
-module.exports = getPresignedUrls;
+// Export the controller function as an object - this matches how it's imported in user.routes.js
+module.exports = {
+    getPresignedUrls
+};

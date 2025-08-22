@@ -1,7 +1,7 @@
 const express = require('express');
 const userController = require('./user.controller');
 const authMiddleware = require('../auth/auth.middleware');
-const getPresignedUrls = require('./presigned-url.controller'); // Import the function directly
+const { getPresignedUrls } = require('./presigned-url.controller'); // Import the function using destructuring
 
 const router = express.Router();
 
