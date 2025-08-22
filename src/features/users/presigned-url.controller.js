@@ -1,11 +1,5 @@
-const AWS = require('aws-sdk');
-
-// Initialize S3 client
-const s3 = new AWS.S3({
-    apiVersion: '2006-03-01',
-    region: process.env.AWS_REGION,
-    signatureVersion: 'v4'
-});
+const catchAsync = require('../../utils/catchAsync');
+const { generatePresignedUrl } = require('../../services/aws/s3Service');
 
 // Debug function to verify AWS configuration
 const verifyAwsConfig = () => {
@@ -17,7 +11,7 @@ const verifyAwsConfig = () => {
 };
 
 // Handle pre-signed URL generation
-async function getPresignedUrls(req, res) {
+const getPresignedUrls = catchAsync(async (req, res) => {
     // Verify AWS configuration on each request during testing
     verifyAwsConfig();
     
@@ -106,7 +100,7 @@ async function getPresignedUrls(req, res) {
             error: error.message
         });
     }
-};
+});
     
 
 module.exports = {

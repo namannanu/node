@@ -3,6 +3,15 @@ const router = express.Router();
 const authMiddleware = require('../auth/auth.middleware');
 const { getPresignedUrls } = require('./presigned-url.controller');
 
+// Debug route to verify API is working
+router.get('/test', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Users API is working',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Test route to verify API is accessible
 router.get('/test', (req, res) => {
     res.json({
