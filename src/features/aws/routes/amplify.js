@@ -242,14 +242,32 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
             // Store user upload info
             userUploads.set(userId, uploadData);
 
-            // Add fileUrl to the request body for the middleware
-            req.body.fileUrl = fileUrl;
-            
-            return res.status(200).json({ 
-                success: true, 
-                fileUrl,
-                storage: "aws_s3",
-                message: "File uploaded to AWS S3 successfully and user record updated",
+            // Update user record in MongoDB
+            const User = require('../../users/user.model');
+            try {
+                const updatedUser = await User.findOneAndUpdate(
+                    { userId: userId },
+                    { 
+                        $set: { 
+                            uploadedPhoto: fileUrl,
+                            updatedAt: new Date()
+                        }
+                    },
+                    { new: true }
+                );
+
+                if (!updatedUser) {
+                    console.log(`❌ No user found with userId: ${userId}`);
+                    throw new Error('User not found');
+                }
+
+                console.log('✅ User record updated with photo URL:', fileUrl);
+                
+                return res.status(200).json({ 
+                    success: true, 
+                    fileUrl,
+                    storage: "aws_s3",
+                    message: "File uploaded to AWS S3 and user record updated successfully",
                 uploadInfo: {
                     filename: filename,
                     originalName: req.file.originalname,
@@ -263,7 +281,34 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
                     note: "One image per user policy enforced",
                     toUploadAgain: "Delete existing image first using DELETE /api/delete"
                 },
-                fileInfo: uploadData
+                fileInfo: uploadData,
+                user: {
+                    userId: updatedUser.userId,
+                    name: updatedUser.name,
+                    uploadedPhoto: updatedUser.uploadedPhoto,
+                    verificationStatus: updatedUser.verificationStatus
+                }
+            });
+            } catch (dbError) {
+                console.error('❌ Error updating user record:', dbError);
+                // Still return success for the file upload but with a warning
+                return res.status(200).json({ 
+                    success: true, 
+                    fileUrl,
+                    storage: "aws_s3",
+                    message: "File uploaded to AWS S3 successfully but user record update failed",
+                    warning: "Failed to update user record with new photo URL",
+                    uploadInfo: {
+                        filename: filename,
+                        originalName: req.file.originalname,
+                        size: req.file.size,
+                        sizeMB: Math.round(req.file.size / (1024 * 1024) * 100) / 100,
+                        uploadedBy: sanitizedFullname,
+                        userId: userId,
+                        uploadedAt: timestamp
+                    },
+                    fileInfo: uploadData
+                });
             });
 
         } catch (s3Error) {
