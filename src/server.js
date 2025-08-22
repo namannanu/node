@@ -80,6 +80,7 @@ const amplifyRoutes = require('./features/aws/routes/amplify');
 
 // Use feature routes
 app.use('/api/auth', authRoutes);
+// AWS Upload routes (protected by JWT)
 app.use('/api/upload', uploadRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/organizers', organizerRoutes);

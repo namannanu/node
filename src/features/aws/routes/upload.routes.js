@@ -2,7 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const User = require('../../users/user.model');
-const { verifyToken } = require('../aws.middleware');
+const { verifyToken, updateUserAfterUpload } = require('../aws.middleware');
 
 const router = express.Router();
 
@@ -30,7 +30,7 @@ const upload = multer({
 });
 
 // Upload Image with AWS S3 (Protected Route)
-router.post("/upload", verifyToken, upload.single("image"), async (req, res) => {
+router.post("/upload", [verifyToken, upload.single("image")], async (req, res) => {
     try {
         if (!req.file) {
             console.log("[ERROR] No file received.");
