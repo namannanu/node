@@ -48,6 +48,29 @@ app.use(cookieParser());
 app.use(morgan('dev'));
 
 // Import and use feature routes
+const userRoutes = require('./features/users');
+const awsRoutes = require('./features/aws/aws-debug.routes');
+
+// Register routes
+app.use('/api/users', userRoutes);
+app.use('/api/aws', awsRoutes);
+
+// Debug route to verify API is working
+app.get('/api/debug', (req, res) => {
+    res.json({
+        success: true,
+        message: 'API is working',
+        routes: {
+            users: '/api/users/:userId/presigned-urls',
+            aws: '/api/aws/aws-test'
+        },
+        env: {
+            hasAwsCredentials: !!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY,
+            region: process.env.AWS_REGION || 'not set',
+            bucket: process.env.AWS_S3_BUCKET || 'not set'
+        }
+    });
+});
 const eventRoutes = require('./features/events/event.routes');
 const organizerRoutes = require('./features/organizers/organizer.routes');  
 const ticketRoute = require('./features/tickets/ticket.routes');
