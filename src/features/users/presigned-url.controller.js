@@ -103,6 +103,5 @@ const getPresignedUrls = catchAsync(async (req, res) => {
 });
     
 
-module.exports = {
-    getPresignedUrls
-};
+// Export the function directly
+module.exports = getPresignedUrls;

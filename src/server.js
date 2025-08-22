@@ -48,12 +48,7 @@ app.use(cookieParser());
 app.use(morgan('dev'));
 
 // Import and use feature routes
-const userRoutes = require('./features/users');
 const awsRoutes = require('./features/aws/aws-debug.routes');
-
-// Register routes
-app.use('/api/users', userRoutes);
-app.use('/api/aws', awsRoutes);
 
 // Debug route to verify API is working
 app.get('/api/debug', (req, res) => {
