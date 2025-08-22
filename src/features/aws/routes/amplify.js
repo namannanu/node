@@ -38,17 +38,17 @@ const verifyToken = (req, res, next) => {
 
 // Generate token endpoint
 router.post("/generate-token", (req, res) => {
-    const { userId, fullname } = req.body;
+    const { userId } = req.body;
     
-    if (!userId || !fullname) {
+    if (!userId) {
         return res.status(400).json({ 
             success: false, 
-            message: 'userId and fullname are required' 
+            message: 'userId is required' 
         });
     }
 
     const token = jwt.sign(
-        { userId, fullname },
+        { userId },
         JWT_SECRET,
         { expiresIn: '24h' }
     );
@@ -57,7 +57,8 @@ router.post("/generate-token", (req, res) => {
         success: true,
         token,
         expiresIn: '24h',
-        user: { userId, fullname }
+        user: { userId },
+        note: "fullname will be provided during upload from Aadhar API"
     });
 });
 
@@ -127,7 +128,15 @@ router.post("/upload/:userId", verifyToken, upload.single("image"), async (req, 
         }
 
         const userId = req.params.userId; // Get from URL parameter
-        const fullname = req.user.fullname; // Get from JWT token
+        const fullname = req.body.fullname; // Get from request body (will be from Aadhar API later)
+        
+        // Validate required fields
+        if (!fullname) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "fullname is required in request body" 
+            });
+        }
         
         // Optional: Verify that the token userId matches the parameter userId
         if (req.user.userId !== userId) {
@@ -367,6 +376,28 @@ router.get("/admin/uploads", (req, res) => {
     });
 });
 
+// Clear all user uploads (Admin endpoint for testing - no auth for demo)
+router.delete("/admin/clear-all-uploads", async (req, res) => {
+    try {
+        const uploadCount = userUploads.size;
+        
+        // Clear the in-memory storage
+        userUploads.clear();
+        
+        res.json({
+            success: true,
+            message: `Cleared ${uploadCount} upload records from memory`,
+            note: "S3 files are not deleted - only local records cleared"
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Failed to clear uploads",
+            error: error.message
+        });
+    }
+});
+
 // Health check endpoint for AWS status
 router.get("/aws-status", (req, res) => {
     res.json({
@@ -433,6 +464,15 @@ router.post("/test-upload", verifyToken, upload.single("image"), (req, res) => {
         return res.status(400).json({ success: false, msg: "No file uploaded" });
     }
 
+    const { fullname } = req.body;
+    
+    if (!fullname) {
+        return res.status(400).json({ 
+            success: false, 
+            message: "fullname is required in request body" 
+        });
+    }
+
     const fileInfo = {
         originalName: req.file.originalname,
         mimetype: req.file.mimetype,
@@ -441,7 +481,7 @@ router.post("/test-upload", verifyToken, upload.single("image"), (req, res) => {
         sizeMB: Math.round(req.file.size / (1024 * 1024) * 100) / 100,
         user: {
             userId: req.user.userId,
-            fullname: req.user.fullname
+            fullname: fullname
         }
     };
 

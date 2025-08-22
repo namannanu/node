@@ -1,0 +1,634 @@
+{
+	"info": {
+		"_postman_id": "amplify-upload-api-collection",
+		"name": "Amplify Upload API - Complete Testing",
+		"description": "Complete collection for testing AWS S3 upload API with JWT authentication, userId parameters, and Aadhar API integration ready. Now includes fullname input from request body instead of JWT token.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "amplify-api-tester"
+	},
+	"item": [
+		{
+			"name": "1. Generate JWT Token",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test successful token generation",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response contains token\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('token');",
+							"    pm.expect(jsonData).to.have.property('success', true);",
+							"    ",
+							"    // Save token for other requests",
+							"    pm.collectionVariables.set('jwt_token', jsonData.token);",
+							"    pm.collectionVariables.set('user_id', jsonData.user.userId);",
+							"});",
+							"",
+							"pm.test(\"Token expires in 24h\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.expiresIn).to.eql('24h');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\": \"{{test_user_id}}\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/generate-token",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"generate-token"
+					]
+				},
+				"description": "Generate JWT token for authentication. Required for all upload operations."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Check AWS Status",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"S3 is available\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.aws.s3Available).to.be.true;",
+							"    pm.expect(jsonData.aws.hasAccessKey).to.be.true;",
+							"    pm.expect(jsonData.aws.hasSecretKey).to.be.true;",
+							"});",
+							"",
+							"pm.test(\"Bucket name is correct\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.aws.bucketName).to.eql('nfacialimagescollections');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/aws-status",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"aws-status"
+					]
+				},
+				"description": "Check AWS S3 connection status and credentials"
+			},
+			"response": []
+		},
+		{
+			"name": "3. Test S3 Connection",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"S3 connection successful\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData.message).to.include('S3 connection successful');",
+							"    pm.expect(jsonData.bucketCount).to.be.above(0);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/test-s3-connection",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"test-s3-connection"
+					]
+				},
+				"description": "Test direct S3 connection by listing buckets"
+			},
+			"response": []
+		},
+		{
+			"name": "4. Upload Image (with userId parameter)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Image uploaded to S3 successfully\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData.storage).to.eql('aws_s3');",
+							"    pm.expect(jsonData.fileUrl).to.include('amazonaws.com');",
+							"    pm.expect(jsonData.message).to.include('S3 successfully');",
+							"    ",
+							"    // Save file info for other tests",
+							"    pm.collectionVariables.set('uploaded_file_url', jsonData.fileUrl);",
+							"    pm.collectionVariables.set('uploaded_filename', jsonData.fileInfo.filename);",
+							"});",
+							"",
+							"pm.test(\"Filename format is correct\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    var expectedFormat = pm.collectionVariables.get('test_user_id') + '_' + pm.collectionVariables.get('test_full_name');",
+							"    pm.expect(jsonData.fileInfo.filename).to.eql(expectedFormat);",
+							"});",
+							"",
+							"pm.test(\"File metadata is correct\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.fileInfo.userId).to.eql(pm.collectionVariables.get('test_user_id'));",
+							"    pm.expect(jsonData.fileInfo.uploadedBy).to.eql(pm.collectionVariables.get('test_full_name'));",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "image",
+							"type": "file",
+							"src": [],
+							"description": "Select an image file (JPEG/PNG, max 10MB)"
+						},
+						{
+							"key": "fullname",
+							"value": "{{test_full_name}}",
+							"type": "text",
+							"description": "Full name from Aadhar API (currently manual input)"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/api/upload/{{test_user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"upload",
+						"{{test_user_id}}"
+					]
+				},
+				"description": "Upload image to S3 with userId as URL parameter. Filename format: userid_fullname"
+			},
+			"response": []
+		},
+		{
+			"name": "5. Get My Upload Info",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Upload info retrieved successfully\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData.uploadInfo).to.have.property('filename');",
+							"    pm.expect(jsonData.uploadInfo).to.have.property('fileUrl');",
+							"    pm.expect(jsonData.uploadInfo.storage).to.eql('aws_s3');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/my-upload/{{test_user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"my-upload",
+						"{{test_user_id}}"
+					]
+				},
+				"description": "Get upload information for the authenticated user"
+			},
+			"response": []
+		},
+		{
+			"name": "6. Retrieve Image URL",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Image URL retrieved successfully\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData.fileUrl).to.include('amazonaws.com');",
+							"    pm.expect(jsonData.storage).to.eql('aws_s3');",
+							"    pm.expect(jsonData.message).to.include('S3 URL');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/retrieve-image/{{test_user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"retrieve-image",
+						"{{test_user_id}}"
+					]
+				},
+				"description": "Retrieve the S3 URL for the user's uploaded image"
+			},
+			"response": []
+		},
+		{
+			"name": "7. Test Upload (Duplicate - Should Fail)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 400 (duplicate upload blocked)\", function () {",
+							"    pm.response.to.have.status(400);",
+							"});",
+							"",
+							"pm.test(\"Duplicate upload is prevented\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.false;",
+							"    pm.expect(jsonData.message).to.include('already uploaded');",
+							"    pm.expect(jsonData.existingUpload).to.exist;",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "image",
+							"type": "file",
+							"src": [],
+							"description": "Any image file - this should be blocked"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/api/upload/{{test_user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"upload",
+						"{{test_user_id}}"
+					]
+				},
+				"description": "Test that duplicate uploads are prevented (one image per user)"
+			},
+			"response": []
+		},
+		{
+			"name": "8. Admin: List All Uploads",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Admin endpoint works\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData).to.have.property('totalUploads');",
+							"    pm.expect(jsonData).to.have.property('uploads');",
+							"    pm.expect(jsonData.totalUploads).to.be.above(0);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/admin/uploads",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"admin",
+						"uploads"
+					]
+				},
+				"description": "Admin endpoint to list all uploads (no authentication required for demo)"
+			},
+			"response": []
+		},
+		{
+			"name": "9. Delete Image",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Image deleted successfully\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData.message).to.include('deleted successfully');",
+							"    pm.expect(jsonData.deletedFile).to.have.property('filename');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/delete/{{test_user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"delete",
+						"{{test_user_id}}"
+					]
+				},
+				"description": "Delete the user's uploaded image from S3 and local storage"
+			},
+			"response": []
+		},
+		{
+			"name": "10. Upload After Delete (Should Work)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Upload after delete works\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData.storage).to.eql('aws_s3');",
+							"    pm.expect(jsonData.message).to.include('S3 successfully');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "image",
+							"type": "file",
+							"src": [],
+							"description": "Select another image file to test re-upload"
+						},
+						{
+							"key": "fullname",
+							"value": "{{test_full_name}}",
+							"type": "text",
+							"description": "Full name from Aadhar API (currently manual input)"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/api/upload/{{test_user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"upload",
+						"{{test_user_id}}"
+					]
+				},
+				"description": "Test that user can upload again after deleting previous image"
+			},
+			"response": []
+		},
+		{
+			"name": "10. Clear All Uploads (Admin)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Uploads cleared successfully\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData).to.have.property('message');",
+							"    console.log('Cleared uploads:', jsonData.message);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/admin/clear-all-uploads",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"admin",
+						"clear-all-uploads"
+					]
+				},
+				"description": "Clear all user upload records from memory for testing purposes"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Set default test values if not already set",
+					"if (!pm.collectionVariables.get('test_user_id')) {",
+					"    pm.collectionVariables.set('test_user_id', 'testuser123');",
+					"}",
+					"if (!pm.collectionVariables.get('test_full_name')) {",
+					"    pm.collectionVariables.set('test_full_name', 'TestUser');",
+					"}"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global test script can be added here if needed"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "https://correct-hsva9m9pc-namans-projects-a5e5c016.vercel.app",
+			"type": "string"
+		},
+		{
+			"key": "test_user_id",
+			"value": "testuser123",
+			"type": "string"
+		},
+		{
+			"key": "test_full_name",
+			"value": "TestUser",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "full_name",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "uploaded_file_url",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "uploaded_filename",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

@@ -5,15 +5,18 @@ const { promisify } = require('util');
 const { AppError } = require('../../shared/utils/');
 const bcrypt = require('bcryptjs');
 
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN
-  });
+const signToken = (user) => {
+  // sign with userId if available, otherwise fallback to _id
+  return jwt.sign(
+    { userId: user.userId || user._id.toString() },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN }
+  );
 };
 
 const createSendToken = (user, statusCode, res) => {
-  const token = signToken(user._id);
-  
+  const token = signToken(user);
+
   const cookieOptions = {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
@@ -31,6 +34,14 @@ const createSendToken = (user, statusCode, res) => {
     data: { user }
   });
 };
+
+
+
+
+
+
+
+
 
 const signup = async (userObj) => {
   const newUser = await User.create(userObj);
@@ -59,9 +70,11 @@ const login = async (email, password) => {
   return user;
 };
 
+
+
+
 const protect = async (req, res, next) => {
   try {
-    // Getting token and check if it's there
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
@@ -73,26 +86,30 @@ const protect = async (req, res, next) => {
       return next(new AppError('You are not logged in! Please log in to get access.', 401));
     }
 
-    // Verification token
+    // Decode
     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
-    // Check if user still exists
-    let currentUser = await User.findById(decoded.id);
+    // Try to find user either by userId (preferred) or _id fallback
+    let currentUser = await User.findOne({ userId: decoded.userId });
     if (!currentUser) {
-      currentUser = await Admin.findById(decoded.id);
+      currentUser = await User.findById(decoded.userId) || await Admin.findById(decoded.userId);
     }
-    
+
     if (!currentUser) {
       return next(new AppError('The user belonging to this token does no longer exist.', 401));
     }
 
-    // Grant access to protected route
     req.user = currentUser;
     next();
   } catch (error) {
     return next(new AppError('Invalid token. Please log in again!', 401));
   }
 };
+
+
+
+
+
 
 const restrictTo = (...roles) => {
   return (req, res, next) => {
