@@ -8,6 +8,8 @@ const {
   createInvalidPermissionError, 
   createUnauthorizedPermissionError 
 } = require('../../shared/utils/permissionValidator');
+const { getSignedImageUrl, checkObjectExists } = require('../aws/s3-signed-url.service');
+const AadharService = require('../../shared/services/aadhar.service');
 
 // Create a new employee user
 exports.createEmployee = catchAsync(async (req, res, next) => {
@@ -639,4 +641,130 @@ exports.bulkUserOperations = catchAsync(async (req, res, next) => {
       results
     }
   });
+});
+
+// Get user activity with last login information
+exports.getUserActivity = catchAsync(async (req, res, next) => {
+  // Check if user has admin permissions
+  if (!req.user.permissions.includes('all_permissions') && 
+      !req.user.permissions.includes('user_management')) {
+    return next(new AppError('Insufficient permissions for user activity', 403));
+  }
+
+  const { page = 1, limit = 20, sortBy = 'lastLogin', sortOrder = 'desc', status } = req.query;
+  const skip = (page - 1) * limit;
+
+  // Build filter object
+  const filter = {};
+  if (status) filter.status = status;
+
+  // Build sort object
+  const sort = {};
+  sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+  try {
+    // Get users with pagination and sorting
+    const users = await User.find(filter)
+      .select('fullName email phone createdAt lastLogin status verificationStatus role')
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await User.countDocuments(filter);
+    const totalPages = Math.ceil(total / limit);
+
+    // Calculate activity statistics
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const activityStats = {
+      totalUsers: total,
+      activeToday: await User.countDocuments({ 
+        lastLogin: { $gte: oneDayAgo },
+        ...filter 
+      }),
+      activeThisWeek: await User.countDocuments({ 
+        lastLogin: { $gte: oneWeekAgo },
+        ...filter 
+      }),
+      activeThisMonth: await User.countDocuments({ 
+        lastLogin: { $gte: oneMonthAgo },
+        ...filter 
+      }),
+      neverLoggedIn: await User.countDocuments({ 
+        lastLogin: null,
+        ...filter 
+      })
+    };
+
+    // Format users with relative time for last login
+    const formattedUsers = users.map(user => {
+      let lastLoginFormatted = 'Never';
+      let loginStatus = 'inactive';
+      
+      if (user.lastLogin) {
+        const timeDiff = now - user.lastLogin;
+        const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60));
+        const minutesDiff = Math.floor(timeDiff / (1000 * 60));
+
+        if (daysDiff === 0) {
+          if (hoursDiff === 0) {
+            lastLoginFormatted = minutesDiff === 0 ? 'Just now' : `${minutesDiff} minutes ago`;
+            loginStatus = 'active';
+          } else {
+            lastLoginFormatted = `${hoursDiff} hours ago`;
+            loginStatus = 'recent';
+          }
+        } else if (daysDiff === 1) {
+          lastLoginFormatted = 'Yesterday';
+          loginStatus = 'recent';
+        } else if (daysDiff <= 7) {
+          lastLoginFormatted = `${daysDiff} days ago`;
+          loginStatus = 'weekly';
+        } else if (daysDiff <= 30) {
+          lastLoginFormatted = `${daysDiff} days ago`;
+          loginStatus = 'monthly';
+        } else {
+          lastLoginFormatted = `${Math.floor(daysDiff / 30)} months ago`;
+          loginStatus = 'inactive';
+        }
+      }
+
+      return {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        status: user.status,
+        verificationStatus: user.verificationStatus,
+        createdAt: user.createdAt,
+        lastLogin: user.lastLogin,
+        lastLoginFormatted,
+        loginStatus,
+        registeredDays: Math.floor((now - user.createdAt) / (1000 * 60 * 60 * 24))
+      };
+    });
+
+    res.status(200).json({
+      status: 'success',
+      results: users.length,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages
+      },
+      activityStats,
+      data: {
+        users: formattedUsers
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user activity:', error);
+    return next(new AppError('Failed to fetch user activity data', 500));
+  }
 });

@@ -28,4 +28,12 @@ router.route('/admin-users/:id')
 
 router.patch('/employees/permissions', adminController.updateEmployeePermissions);
 
+// User verification routes
+router.get('/verification/pending', adminController.getPendingVerificationUsers);
+router.get('/verification/user/:userId', adminController.getUserVerificationDetails);
+router.patch('/verification/user/:userId', adminController.updateUserVerification);
+
+// Dashboard routes - get users with last login info
+router.get('/users/activity', adminController.getUserActivity);
+
 module.exports = router;

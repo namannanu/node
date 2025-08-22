@@ -4,6 +4,9 @@ const { S3Client, PutObjectCommand, DeleteObjectCommand, ListBucketsCommand } = 
 const { fromNodeProviderChain } = require("@aws-sdk/credential-providers");
 const jwt = require('jsonwebtoken');
 
+// Import S3 signed URL service
+const { getSignedImageUrl, checkObjectExists, getMultipleSignedUrls } = require('../s3-signed-url.service');
+
 const router = express.Router();
 
 // In-memory storage for user uploads (in production, use a database)
@@ -138,17 +141,53 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
             });
         }
         
-        // Check if user already has an uploaded image
-        if (userUploads.has(userId)) {
+        // Additional validation for fullname
+        if (fullname.trim().length < 2) {
             return res.status(400).json({ 
                 success: false, 
-                message: "You have already uploaded an image. Delete the existing image first.",
-                existingUpload: userUploads.get(userId)
+                message: "fullname must be at least 2 characters long" 
+            });
+        }
+        
+        if (fullname.length > 50) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "fullname cannot exceed 50 characters" 
+            });
+        }
+        
+        // Sanitize fullname (remove special characters that might cause issues in filename)
+        const sanitizedFullname = fullname.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+        
+        if (sanitizedFullname.length === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "fullname contains only invalid characters" 
+            });
+        }
+        
+        // Check if user already has an uploaded image
+        if (userUploads.has(userId)) {
+            const existingUpload = userUploads.get(userId);
+            return res.status(409).json({ // 409 Conflict is more appropriate than 400
+                success: false, 
+                message: "You have already uploaded an image. Delete the existing image first to upload a new one.",
+                error: "DUPLICATE_UPLOAD_BLOCKED",
+                existingUpload: {
+                    filename: existingUpload.filename,
+                    uploadedBy: existingUpload.uploadedBy,
+                    uploadedAt: existingUpload.uploadedAt,
+                    fileUrl: existingUpload.fileUrl
+                },
+                actions: {
+                    deleteExisting: `DELETE ${req.protocol}://${req.get('host')}/api/delete`,
+                    viewExisting: `GET ${req.protocol}://${req.get('host')}/api/my-upload`
+                }
             });
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `${userId}_${fullname}`; // Format: userid_fullname
+        const filename = `${userId}_${sanitizedFullname.replace(/\s+/g, '_')}`; // Format: userid_sanitized_fullname
 
         // AWS S3 upload only - no fallback
         if (!s3Available || !s3) {
@@ -166,7 +205,8 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
                 Body: req.file.buffer,
                 ContentType: req.file.mimetype,
                 Metadata: { 
-                    fullname: fullname,
+                    fullname: sanitizedFullname,
+                    originalFullname: fullname,
                     userId: userId,
                     uploadedAt: timestamp
                 },
@@ -182,13 +222,20 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
                 filename: filename,
                 originalName: req.file.originalname,
                 size: req.file.size,
+                sizeMB: Math.round(req.file.size / (1024 * 1024) * 100) / 100,
                 mimetype: req.file.mimetype,
-                uploadedBy: fullname,
+                uploadedBy: sanitizedFullname,
+                originalFullname: fullname,
                 userId: userId,
                 uploadedAt: timestamp,
                 storage: "aws_s3",
                 fileUrl: fileUrl,
-                s3Key: `public/${filename}`
+                s3Key: `public/${filename}`,
+                restrictions: {
+                    oneImagePerUser: true,
+                    maxSizeMB: 10,
+                    allowedTypes: ["image/jpeg", "image/png", "image/jpg"]
+                }
             };
 
             // Store user upload info
@@ -199,6 +246,19 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
                 fileUrl,
                 storage: "aws_s3",
                 message: "File uploaded to AWS S3 successfully",
+                uploadInfo: {
+                    filename: filename,
+                    originalName: req.file.originalname,
+                    size: req.file.size,
+                    sizeMB: Math.round(req.file.size / (1024 * 1024) * 100) / 100,
+                    uploadedBy: sanitizedFullname,
+                    userId: userId,
+                    uploadedAt: timestamp
+                },
+                restrictions: {
+                    note: "One image per user policy enforced",
+                    toUploadAgain: "Delete existing image first using DELETE /api/delete"
+                },
                 fileInfo: uploadData
             });
 
@@ -221,6 +281,41 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
             error: process.env.NODE_ENV === 'development' ? err.message : "Internal server error"
         });
     }
+});
+
+// Check if user can upload (Protected Route)
+router.get("/can-upload", verifyToken, (req, res) => {
+    const userId = req.user.userId;
+    
+    const hasExistingUpload = userUploads.has(userId);
+    const existingUpload = hasExistingUpload ? userUploads.get(userId) : null;
+    
+    res.json({
+        success: true,
+        canUpload: !hasExistingUpload,
+        userId: userId,
+        status: hasExistingUpload ? "HAS_EXISTING_UPLOAD" : "CAN_UPLOAD",
+        message: hasExistingUpload ? 
+            "You already have an uploaded image. Delete it first to upload a new one." : 
+            "You can upload an image.",
+        existingUpload: existingUpload ? {
+            filename: existingUpload.filename,
+            uploadedBy: existingUpload.uploadedBy,
+            uploadedAt: existingUpload.uploadedAt,
+            fileUrl: existingUpload.fileUrl,
+            sizeMB: existingUpload.sizeMB || Math.round(existingUpload.size / (1024 * 1024) * 100) / 100
+        } : null,
+        actions: {
+            upload: hasExistingUpload ? null : `POST /api/upload`,
+            delete: hasExistingUpload ? `DELETE /api/delete` : null,
+            view: hasExistingUpload ? `GET /api/my-upload` : null
+        },
+        systemInfo: {
+            oneImagePerUser: true,
+            maxSizeMB: 10,
+            allowedTypes: ["image/jpeg", "image/png", "image/jpg"]
+        }
+    });
 });
 
 // Delete user's uploaded image (Protected Route)
@@ -467,6 +562,192 @@ router.post("/test-upload", verifyToken, upload.single("image"), (req, res) => {
             s3Available: s3Available
         }
     });
+});
+
+// Get signed URL for user's image (Protected Route)
+router.get("/signed-url/:userId", verifyToken, async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const requestingUserId = req.user.userId;
+        
+        // Optional: Allow users to access their own images or implement access control
+        if (requestingUserId !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only access your own image URLs"
+            });
+        }
+        
+        // Check if user has an uploaded image
+        if (!userUploads.has(userId)) {
+            return res.status(404).json({
+                success: false,
+                message: "No uploaded image found for this user"
+            });
+        }
+        
+        const uploadData = userUploads.get(userId);
+        const s3Key = uploadData.s3Key; // e.g., "public/user-uxf4qav4y-memrdvmn_rohit"
+        
+        // Check if the object exists in S3
+        const objectExists = await checkObjectExists(s3Key);
+        if (!objectExists) {
+            return res.status(404).json({
+                success: false,
+                message: "Image file not found in S3 storage",
+                error: "S3_OBJECT_NOT_FOUND"
+            });
+        }
+        
+        // Generate signed URL (default 1 hour expiration)
+        const signedUrl = await getSignedImageUrl(s3Key);
+        
+        res.json({
+            success: true,
+            signedUrl: signedUrl,
+            expires: "1 hour",
+            imageInfo: {
+                filename: uploadData.filename,
+                uploadedBy: uploadData.uploadedBy,
+                uploadedAt: uploadData.uploadedAt,
+                size: uploadData.size,
+                sizeMB: uploadData.sizeMB
+            },
+            message: "Signed URL generated successfully"
+        });
+        
+    } catch (error) {
+        console.error("[ERROR] Failed to generate signed URL:", error.message);
+        
+        res.status(500).json({
+            success: false,
+            message: "Failed to generate signed URL",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Get multiple signed URLs with different expiration times (Protected Route)
+router.get("/signed-urls/:userId", verifyToken, async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const requestingUserId = req.user.userId;
+        
+        // Access control: users can only access their own images
+        if (requestingUserId !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only access your own image URLs"
+            });
+        }
+        
+        // Check if user has an uploaded image
+        if (!userUploads.has(userId)) {
+            return res.status(404).json({
+                success: false,
+                message: "No uploaded image found for this user"
+            });
+        }
+        
+        const uploadData = userUploads.get(userId);
+        const s3Key = uploadData.s3Key;
+        
+        // Check if the object exists in S3
+        const objectExists = await checkObjectExists(s3Key);
+        if (!objectExists) {
+            return res.status(404).json({
+                success: false,
+                message: "Image file not found in S3 storage",
+                error: "S3_OBJECT_NOT_FOUND"
+            });
+        }
+        
+        // Generate multiple signed URLs with different expiration times
+        const multipleUrls = await getMultipleSignedUrls(s3Key);
+        
+        res.json({
+            success: true,
+            urls: multipleUrls,
+            imageInfo: {
+                filename: uploadData.filename,
+                uploadedBy: uploadData.uploadedBy,
+                uploadedAt: uploadData.uploadedAt,
+                size: uploadData.size,
+                sizeMB: uploadData.sizeMB
+            },
+            message: "Multiple signed URLs generated successfully"
+        });
+        
+    } catch (error) {
+        console.error("[ERROR] Failed to generate multiple signed URLs:", error.message);
+        
+        res.status(500).json({
+            success: false,
+            message: "Failed to generate signed URLs",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Get signed URL for current authenticated user (Simplified Protected Route)
+router.get("/my-signed-url", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        
+        // Check if user has an uploaded image
+        if (!userUploads.has(userId)) {
+            return res.status(404).json({
+                success: false,
+                message: "No uploaded image found for this user"
+            });
+        }
+        
+        const uploadData = userUploads.get(userId);
+        const s3Key = uploadData.s3Key;
+        
+        // Check if the object exists in S3
+        const objectExists = await checkObjectExists(s3Key);
+        if (!objectExists) {
+            return res.status(404).json({
+                success: false,
+                message: "Image file not found in S3 storage",
+                error: "S3_OBJECT_NOT_FOUND"
+            });
+        }
+        
+        // Generate signed URL with custom expiration if provided
+        const expirationHours = parseInt(req.query.expires) || 1;
+        const expirationSeconds = Math.min(expirationHours * 60 * 60, 24 * 60 * 60); // Max 24 hours
+        
+        const signedUrl = await getSignedImageUrl(s3Key, expirationSeconds);
+        
+        res.json({
+            success: true,
+            signedUrl: signedUrl,
+            expires: `${Math.floor(expirationSeconds / 3600)} hour(s)`,
+            expiresAt: new Date(Date.now() + expirationSeconds * 1000).toISOString(),
+            imageInfo: {
+                filename: uploadData.filename,
+                uploadedBy: uploadData.uploadedBy,
+                uploadedAt: uploadData.uploadedAt,
+                size: uploadData.size,
+                sizeMB: uploadData.sizeMB
+            },
+            usage: {
+                note: "Use this signed URL to access your image directly",
+                queryParams: "Add ?expires=<hours> to customize expiration (max 24 hours)"
+            }
+        });
+        
+    } catch (error) {
+        console.error("[ERROR] Failed to generate user's signed URL:", error.message);
+        
+        res.status(500).json({
+            success: false,
+            message: "Failed to generate signed URL",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
 });
 
 module.exports = router;

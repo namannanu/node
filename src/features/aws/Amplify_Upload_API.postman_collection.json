@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "amplify-upload-api-collection",
 		"name": "Amplify Upload API - Complete Testing",
-		"description": "Complete collection for testing AWS S3 upload API with JWT authentication. UserId extracted from JWT token for better security. Fullname input from request body ready for Aadhar API integration.",
+		"description": "Complete collection for testing AWS S3 upload API with JWT authentication, enhanced validation, one-image-per-user enforcement, fullname sanitization, secure signed URLs, and comprehensive error handling. Features: Upload, Delete, Signed URL generation, Admin controls. Ready for Aadhar API integration.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "amplify-api-tester"
 	},
@@ -164,6 +164,7 @@
 							"    pm.expect(jsonData.storage).to.eql('aws_s3');",
 							"    pm.expect(jsonData.fileUrl).to.include('amazonaws.com');",
 							"    pm.expect(jsonData.message).to.include('S3 successfully');",
+							"    pm.expect(jsonData.restrictions).to.exist;",
 							"    ",
 							"    // Save file info for other tests",
 							"    pm.collectionVariables.set('uploaded_file_url', jsonData.fileUrl);",
@@ -179,7 +180,8 @@
 							"pm.test(\"File metadata is correct\", function () {",
 							"    var jsonData = pm.response.json();",
 							"    pm.expect(jsonData.fileInfo.userId).to.eql(pm.collectionVariables.get('test_user_id'));",
-							"    pm.expect(jsonData.fileInfo.uploadedBy).to.eql(pm.collectionVariables.get('test_full_name'));",
+							"    pm.expect(jsonData.uploadInfo.uploadedBy).to.eql(pm.collectionVariables.get('test_full_name'));",
+							"    pm.expect(jsonData.uploadInfo.sizeMB).to.be.above(0);",
 							"});"
 						],
 						"type": "text/javascript"
@@ -221,7 +223,7 @@
 						"upload"
 					]
 				},
-				"description": "Upload image to S3. UserId extracted from JWT token. Filename format: userid_fullname"
+				"description": "Upload image to S3. UserId extracted from JWT token. Filename format: userid_sanitized_fullname. Enforces one image per user with enhanced validation."
 			},
 			"response": []
 		},
@@ -316,21 +318,142 @@
 			"response": []
 		},
 		{
-			"name": "7. Test Upload (Duplicate - Should Fail)",
+			"name": "7. Get Signed URL (My Image)",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.test(\"Status code is 400 (duplicate upload blocked)\", function () {",
-							"    pm.response.to.have.status(400);",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Signed URL generated successfully\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData.signedUrl).to.include('amazonaws.com');",
+							"    pm.expect(jsonData.signedUrl).to.include('X-Amz-Signature');",
+							"    pm.expect(jsonData.expires).to.exist;",
+							"    pm.expect(jsonData.imageInfo).to.exist;",
+							"    ",
+							"    // Save signed URL for potential use",
+							"    pm.collectionVariables.set('signed_url', jsonData.signedUrl);",
+							"    console.log('Signed URL expires:', jsonData.expires);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/my-signed-url?expires=2",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"my-signed-url"
+					],
+					"query": [
+						{
+							"key": "expires",
+							"value": "2",
+							"description": "Expires in 2 hours"
+						}
+					]
+				},
+				"description": "Get a signed URL for the authenticated user's image with custom expiration"
+			},
+			"response": []
+		},
+		{
+			"name": "8. Get Multiple Signed URLs",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Multiple signed URLs generated successfully\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.success).to.be.true;",
+							"    pm.expect(jsonData.urls).to.exist;",
+							"    pm.expect(jsonData.urls.short).to.exist;",
+							"    pm.expect(jsonData.urls.medium).to.exist;",
+							"    pm.expect(jsonData.urls.long).to.exist;",
+							"    ",
+							"    // Validate each URL contains required S3 signature",
+							"    pm.expect(jsonData.urls.short.url).to.include('X-Amz-Signature');",
+							"    pm.expect(jsonData.urls.medium.url).to.include('X-Amz-Signature');",
+							"    pm.expect(jsonData.urls.long.url).to.include('X-Amz-Signature');",
+							"    ",
+							"    // Validate expiration information",
+							"    pm.expect(jsonData.urls.short.expiresIn).to.eql('15 minutes');",
+							"    pm.expect(jsonData.urls.medium.expiresIn).to.eql('1 hour');",
+							"    pm.expect(jsonData.urls.long.expiresIn).to.eql('24 hours');",
+							"    ",
+							"    console.log('Generated URLs with different expiration times');",
+							"    console.log('Short URL expires in:', jsonData.urls.short.expiresIn);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/signed-urls/{{user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"signed-urls",
+						"{{user_id}}"
+					]
+				},
+				"description": "Get multiple signed URLs with different expiration times (15min, 1hr, 24hr)"
+			},
+			"response": []
+		},
+		{
+			"name": "9. Test Upload (Duplicate - Should Fail)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 409 (duplicate upload blocked)\", function () {",
+							"    pm.response.to.have.status(409);",
 							"});",
 							"",
 							"pm.test(\"Duplicate upload is prevented\", function () {",
 							"    var jsonData = pm.response.json();",
 							"    pm.expect(jsonData.success).to.be.false;",
 							"    pm.expect(jsonData.message).to.include('already uploaded');",
+							"    pm.expect(jsonData.error).to.eql('DUPLICATE_UPLOAD_BLOCKED');",
 							"    pm.expect(jsonData.existingUpload).to.exist;",
+							"    pm.expect(jsonData.actions).to.exist;",
+							"    ",
+							"    console.log('Duplicate blocked for:', jsonData.existingUpload.filename);",
 							"});"
 						],
 						"type": "text/javascript"
@@ -377,7 +500,7 @@
 			"response": []
 		},
 		{
-			"name": "8. Admin: List All Uploads",
+			"name": "10. Admin: List All Uploads",
 			"event": [
 				{
 					"listen": "test",
@@ -418,7 +541,7 @@
 			"response": []
 		},
 		{
-			"name": "9. Delete Image",
+			"name": "11. Delete Image",
 			"event": [
 				{
 					"listen": "test",
@@ -462,7 +585,7 @@
 			"response": []
 		},
 		{
-			"name": "10. Upload After Delete (Should Work)",
+			"name": "12. Upload After Delete (Should Work)",
 			"event": [
 				{
 					"listen": "test",
@@ -523,7 +646,7 @@
 			"response": []
 		},
 		{
-			"name": "11. Clear All Uploads (Admin)",
+			"name": "13. Clear All Uploads (Admin)",
 			"event": [
 				{
 					"listen": "test",
@@ -571,11 +694,27 @@
 				"exec": [
 					"// Set default test values if not already set",
 					"if (!pm.collectionVariables.get('test_user_id')) {",
-					"    pm.collectionVariables.set('test_user_id', 'testuser123');",
+					"    // Generate a unique user ID for this test session",
+					"    const timestamp = Date.now();",
+					"    const randomId = Math.random().toString(36).substr(2, 9);",
+					"    const testUserId = `testuser_${timestamp}_${randomId}`;",
+					"    pm.collectionVariables.set('test_user_id', testUserId);",
+					"    console.log('Generated unique test user ID:', testUserId);",
 					"}",
+					"",
 					"if (!pm.collectionVariables.get('test_full_name')) {",
-					"    pm.collectionVariables.set('test_full_name', 'TestUser');",
-					"}"
+					"    pm.collectionVariables.set('test_full_name', 'Test User');",
+					"}",
+					"",
+					"// Set environment info",
+					"pm.collectionVariables.set('test_session_started', new Date().toISOString());",
+					"",
+					"// Log current test info",
+					"console.log('=== Amplify Upload API Test Session ===');",
+					"console.log('User ID:', pm.collectionVariables.get('test_user_id'));",
+					"console.log('Full Name:', pm.collectionVariables.get('test_full_name'));",
+					"console.log('Base URL:', pm.collectionVariables.get('base_url'));",
+					"console.log('Session Started:', pm.collectionVariables.get('test_session_started'));"
 				]
 			}
 		},
@@ -584,7 +723,42 @@
 			"script": {
 				"type": "text/javascript",
 				"exec": [
-					"// Global test script can be added here if needed"
+					"// Global test script - runs after each request",
+					"",
+					"// Log response time for performance monitoring",
+					"const responseTime = pm.response.responseTime;",
+					"if (responseTime > 5000) {",
+					"    console.warn('⚠️ Slow response detected:', responseTime + 'ms');",
+					"} else if (responseTime > 2000) {",
+					"    console.log('⏱️ Response time:', responseTime + 'ms');",
+					"}",
+					"",
+					"// Log any errors for debugging",
+					"if (pm.response.code >= 400) {",
+					"    console.error('❌ Error Response:', {",
+					"        status: pm.response.code,",
+					"        statusText: pm.response.status,",
+					"        url: pm.request.url.toString(),",
+					"        method: pm.request.method",
+					"    });",
+					"    ",
+					"    try {",
+					"        const errorBody = pm.response.json();",
+					"        console.error('Error Details:', errorBody);",
+					"    } catch (e) {",
+					"        console.error('Raw Error Response:', pm.response.text());",
+					"    }",
+					"} else {",
+					"    console.log('✅ Success:', pm.request.method, pm.response.code, pm.request.url.toString().split('/').pop());",
+					"}",
+					"",
+					"// Global validation - all responses should have proper headers",
+					"pm.test('Response has proper content-type', function () {",
+					"    const contentType = pm.response.headers.get('content-type');",
+					"    if (pm.response.code < 400) {",
+					"        pm.expect(contentType).to.include('json');",
+					"    }",
+					"});"
 				]
 			}
 		}
@@ -592,17 +766,17 @@
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "https://nodejscopy.vercel.app",
+			"value": "https://correct-eight.vercel.app",
 			"type": "string"
 		},
 		{
 			"key": "test_user_id",
-			"value": "testuser123",
+			"value": "",
 			"type": "string"
 		},
 		{
 			"key": "test_full_name",
-			"value": "TestUser",
+			"value": "",
 			"type": "string"
 		},
 		{
@@ -627,6 +801,11 @@
 		},
 		{
 			"key": "uploaded_filename",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "signed_url",
 			"value": "",
 			"type": "string"
 		}

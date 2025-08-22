@@ -28,6 +28,21 @@ const createSendToken = (user, statusCode, res) => {
   res.cookie('jwt', token, cookieOptions);
   user.password = undefined;
 
+  // Format lastLogin for better display
+  if (user.lastLogin) {
+    const now = new Date();
+    const timeDiff = now - user.lastLogin;
+    const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff === 0) {
+      user.lastLoginFormatted = 'Today';
+    } else if (daysDiff === 1) {
+      user.lastLoginFormatted = 'Yesterday';
+    } else {
+      user.lastLoginFormatted = `${daysDiff} days ago`;
+    }
+  }
+
   res.status(statusCode).json({
     status: 'success',
     token,
@@ -61,6 +76,23 @@ const login = async (email, password) => {
   if (!user || !(await bcrypt.compare(password, user.password))) {
     throw new AppError('Incorrect email or password', 401);
   }
+
+  // Update last login timestamp
+  if (user.constructor.modelName === 'User') {
+    // For regular users
+    await User.findByIdAndUpdate(user._id, { 
+      lastLogin: new Date() 
+    });
+  } else if (user.constructor.modelName === 'AdminUser') {
+    // For admin users
+    await Admin.findByIdAndUpdate(user._id, { 
+      lastLogin: new Date(),
+      lastActivity: new Date()
+    });
+  }
+  
+  // Update the user object to include the new lastLogin time
+  user.lastLogin = new Date();
 
   return user;
 };
