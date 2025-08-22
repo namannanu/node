@@ -1,5 +1,4 @@
 const AWS = require('aws-sdk');
-const { catchAsync } = require('../../shared/utils/catchAsync');
 
 // Initialize S3 client with explicit configuration
 const s3 = new AWS.S3({
@@ -17,7 +16,7 @@ const verifyAwsConfig = () => {
     console.log('- Secret Access Key:', process.env.AWS_SECRET_ACCESS_KEY ? '✅ Set' : '❌ Missing');
 };
 
-exports.getPresignedUrls = catchAsync(async (req, res) => {
+exports.getPresignedUrls = async (req, res) => {
     // Verify AWS configuration on each request during testing
     verifyAwsConfig();
     
@@ -106,6 +105,7 @@ exports.getPresignedUrls = catchAsync(async (req, res) => {
             error: error.message
         });
     }
+};
     
     if (!user) {
         return res.status(404).json({
