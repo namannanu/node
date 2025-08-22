@@ -50,7 +50,10 @@ app.use(morgan('dev'));
 
 // Import and use feature routes
 const awsRoutes = require('./features/aws/aws-debug.routes');
-const uploadRoutes = require('./features/aws/routes/upload.routes');
+const fileUploadRoutes = require('./features/aws/routes/file-upload.routes');
+
+// Mount routes
+app.use('/api/files', fileUploadRoutes);
 
 // Debug route to verify API is working
 app.get('/api/debug', (req, res) => {

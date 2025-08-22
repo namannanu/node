@@ -3,7 +3,6 @@ const multer = require("multer");
 const { S3Client, PutObjectCommand, DeleteObjectCommand, ListBucketsCommand } = require("@aws-sdk/client-s3");
 const { fromNodeProviderChain } = require("@aws-sdk/credential-providers");
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
 
 // Import S3 signed URL service
 const { getSignedImageUrl, checkObjectExists, getMultipleSignedUrls } = require('../s3-signed-url.service');
@@ -77,6 +76,7 @@ try {
     };
 
     // Check for Vercel environment variables first
+    // Vercel uses different naming conventions sometimes
     const accessKeyId = process.env.AWS_ACCESS_KEY_ID || process.env.ACCESS_KEY_ID;
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || process.env.SECRET_ACCESS_KEY;
     
@@ -131,8 +131,8 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
             return res.status(400).json({ success: false, msg: "No file uploaded" });
         }
 
-        const userId = req.user.userId;
-        const fullname = req.body.fullname;
+        const userId = req.user.userId; // Get from JWT token
+        const fullname = req.body.fullname; // Get from request body (will be from Aadhar API later)
         
         // Validate required fields
         if (!fullname) {
@@ -142,6 +142,7 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
             });
         }
         
+        // Additional validation for fullname
         if (fullname.trim().length < 2) {
             return res.status(400).json({ 
                 success: false, 
@@ -156,7 +157,7 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
             });
         }
         
-        // Sanitize fullname
+        // Sanitize fullname (remove special characters that might cause issues in filename)
         const sanitizedFullname = fullname.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
         
         if (sanitizedFullname.length === 0) {
@@ -169,7 +170,7 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
         // Check if user already has an uploaded image
         if (userUploads.has(userId)) {
             const existingUpload = userUploads.get(userId);
-            return res.status(409).json({
+            return res.status(409).json({ // 409 Conflict is more appropriate than 400
                 success: false, 
                 message: "You have already uploaded an image. Delete the existing image first to upload a new one.",
                 error: "DUPLICATE_UPLOAD_BLOCKED",
@@ -178,12 +179,16 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
                     uploadedBy: existingUpload.uploadedBy,
                     uploadedAt: existingUpload.uploadedAt,
                     fileUrl: existingUpload.fileUrl
+                },
+                actions: {
+                    deleteExisting: `DELETE ${req.protocol}://${req.get('host')}/api/delete`,
+                    viewExisting: `GET ${req.protocol}://${req.get('host')}/api/my-upload`
                 }
             });
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `${userId}_${sanitizedFullname.replace(/\s+/g, '_')}`;
+        const filename = `${userId}_${sanitizedFullname.replace(/\s+/g, '_')}`; // Format: userid_sanitized_fullname
 
         // AWS S3 upload only - no fallback
         if (!s3Available || !s3) {
@@ -241,7 +246,7 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
             const User = require('../../users/user.model');
             try {
                 const updatedUser = await User.findOneAndUpdate(
-                    { _id: userId },
+                    { userId: userId },
                     { 
                         $set: { 
                             uploadedPhoto: fileUrl,
@@ -252,23 +257,8 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
                 );
 
                 if (!updatedUser) {
-                    console.log(`❌ No user found with _id: ${userId}`);
-                    return res.status(200).json({ 
-                        success: true, 
-                        fileUrl,
-                        storage: "aws_s3",
-                        message: "File uploaded to AWS S3 successfully but user not found in database",
-                        uploadInfo: {
-                            filename: filename,
-                            originalName: req.file.originalname,
-                            size: req.file.size,
-                            sizeMB: Math.round(req.file.size / (1024 * 1024) * 100) / 100,
-                            uploadedBy: sanitizedFullname,
-                            userId: userId,
-                            uploadedAt: timestamp
-                        },
-                        warning: "User record not updated - user not found in database"
-                    });
+                    console.log(`❌ No user found with userId: ${userId}`);
+                    throw new Error('User not found');
                 }
 
                 console.log('✅ User record updated with photo URL:', fileUrl);
@@ -293,14 +283,15 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
                     },
                     fileInfo: uploadData,
                     user: {
-                        userId: updatedUser._id,
-                        name: updatedUser.fullName || updatedUser.name,
+                        userId: updatedUser.userId,
+                        name: updatedUser.name,
                         uploadedPhoto: updatedUser.uploadedPhoto,
                         verificationStatus: updatedUser.verificationStatus
                     }
                 });
             } catch (dbError) {
                 console.error('❌ Error updating user record:', dbError);
+                // Still return success for the file upload but with a warning
                 return res.status(200).json({ 
                     success: true, 
                     fileUrl,
@@ -318,10 +309,10 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
                     },
                     fileInfo: uploadData
                 });
-            }
 
         } catch (s3Error) {
             console.error("[ERROR] S3 upload failed:", s3Error.message);
+            
             return res.status(500).json({ 
                 success: false, 
                 message: "Failed to upload to S3",
@@ -331,6 +322,7 @@ router.post("/upload", verifyToken, upload.single("image"), updateUserAfterUploa
 
     } catch (err) {
         console.error("[ERROR] Upload Failed:", err);
+        
         res.status(500).json({ 
             success: false, 
             msg: "Upload failed", 
@@ -361,6 +353,11 @@ router.get("/can-upload", verifyToken, (req, res) => {
             fileUrl: existingUpload.fileUrl,
             sizeMB: existingUpload.sizeMB || Math.round(existingUpload.size / (1024 * 1024) * 100) / 100
         } : null,
+        actions: {
+            upload: hasExistingUpload ? null : `POST /api/upload`,
+            delete: hasExistingUpload ? `DELETE /api/delete` : null,
+            view: hasExistingUpload ? `GET /api/my-upload` : null
+        },
         systemInfo: {
             oneImagePerUser: true,
             maxSizeMB: 10,
@@ -372,8 +369,9 @@ router.get("/can-upload", verifyToken, (req, res) => {
 // Delete user's uploaded image (Protected Route)
 router.delete("/delete", verifyToken, async (req, res) => {
     try {
-        const userId = req.user.userId;
+        const userId = req.user.userId; // Get from JWT token
         
+        // Check if user has an uploaded image
         if (!userUploads.has(userId)) {
             return res.status(404).json({ 
                 success: false, 
@@ -396,6 +394,7 @@ router.delete("/delete", verifyToken, async (req, res) => {
                 console.log("[DEBUG] S3 delete successful.");
             } catch (s3Error) {
                 console.warn("[WARN] S3 delete failed:", s3Error.message);
+                // Continue with local deletion even if S3 fails
             }
         }
 
@@ -413,6 +412,7 @@ router.delete("/delete", verifyToken, async (req, res) => {
 
     } catch (err) {
         console.error("[ERROR] Delete Failed:", err);
+        
         res.status(500).json({ 
             success: false, 
             message: "Delete failed", 
@@ -423,7 +423,7 @@ router.delete("/delete", verifyToken, async (req, res) => {
 
 // Get user's uploaded image info (Protected Route)
 router.get("/my-upload", verifyToken, (req, res) => {
-    const userId = req.user.userId;
+    const userId = req.user.userId; // Get from JWT token
     
     if (!userUploads.has(userId)) {
         return res.status(404).json({ 
@@ -442,7 +442,7 @@ router.get("/my-upload", verifyToken, (req, res) => {
 
 // Get user's image data (S3 URL only)
 router.get("/retrieve-image", verifyToken, (req, res) => {
-    const userId = req.user.userId;
+    const userId = req.user.userId; // Get from JWT token
     
     if (!userUploads.has(userId)) {
         return res.status(404).json({ 
@@ -468,7 +468,7 @@ router.get("/retrieve-image", verifyToken, (req, res) => {
     });
 });
 
-// List all users with uploads (Admin endpoint)
+// List all users with uploads (Admin endpoint - no auth for demo)
 router.get("/admin/uploads", (req, res) => {
     const uploads = Array.from(userUploads.entries()).map(([userId, data]) => ({
         userId,
@@ -487,10 +487,12 @@ router.get("/admin/uploads", (req, res) => {
     });
 });
 
-// Clear all user uploads (Admin endpoint for testing)
+// Clear all user uploads (Admin endpoint for testing - no auth for demo)
 router.delete("/admin/clear-all-uploads", async (req, res) => {
     try {
         const uploadCount = userUploads.size;
+        
+        // Clear the in-memory storage
         userUploads.clear();
         
         res.json({
@@ -516,7 +518,11 @@ router.get("/aws-status", (req, res) => {
             region: process.env.AWS_REGION || "ap-south-1",
             hasAccessKey: !!(process.env.AWS_ACCESS_KEY_ID || process.env.ACCESS_KEY_ID),
             hasSecretKey: !!(process.env.AWS_SECRET_ACCESS_KEY || process.env.SECRET_ACCESS_KEY),
-            bucketName: "nfacialimagescollections"
+            bucketName: "nfacialimagescollections",
+            // Debug info
+            accessKeyLength: process.env.ACCESS_KEY_ID ? process.env.ACCESS_KEY_ID.length : (process.env.AWS_ACCESS_KEY_ID ? process.env.AWS_ACCESS_KEY_ID.length : 0),
+            secretKeyLength: process.env.SECRET_ACCESS_KEY ? process.env.SECRET_ACCESS_KEY.length : (process.env.AWS_SECRET_ACCESS_KEY ? process.env.AWS_SECRET_ACCESS_KEY.length : 0),
+            credentialSource: process.env.ACCESS_KEY_ID ? "ACCESS_KEY_ID" : (process.env.AWS_ACCESS_KEY_ID ? "AWS_ACCESS_KEY_ID" : "none")
         },
         authentication: {
             required: true,
@@ -541,6 +547,7 @@ router.get("/test-s3-connection", async (req, res) => {
     }
 
     try {
+        // Try to list buckets to test connection
         const command = new ListBucketsCommand({});
         const data = await s3.send(command);
         
@@ -552,15 +559,17 @@ router.get("/test-s3-connection", async (req, res) => {
         });
     } catch (error) {
         console.error("[ERROR] S3 connection test failed:", error.message);
+        
         res.status(500).json({
             success: false,
             message: "S3 connection test failed",
-            error: process.env.NODE_ENV === 'development' ? error.message : "Connection error"
+            error: process.env.NODE_ENV === 'development' ? error.message : "Connection error",
+            code: error.name
         });
     }
 });
 
-// Test upload endpoint (Protected Route)
+// Test upload endpoint (Protected Route - returns file info without actual upload)
 router.post("/test-upload", verifyToken, upload.single("image"), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ success: false, msg: "No file uploaded" });
@@ -609,6 +618,7 @@ router.get("/signed-url/:userId", verifyToken, async (req, res) => {
         const userId = req.params.userId;
         const requestingUserId = req.user.userId;
         
+        // Optional: Allow users to access their own images or implement access control
         if (requestingUserId !== userId) {
             return res.status(403).json({
                 success: false,
@@ -616,6 +626,7 @@ router.get("/signed-url/:userId", verifyToken, async (req, res) => {
             });
         }
         
+        // Check if user has an uploaded image
         if (!userUploads.has(userId)) {
             return res.status(404).json({
                 success: false,
@@ -624,8 +635,9 @@ router.get("/signed-url/:userId", verifyToken, async (req, res) => {
         }
         
         const uploadData = userUploads.get(userId);
-        const s3Key = uploadData.s3Key;
+        const s3Key = uploadData.s3Key; // e.g., "public/user-uxf4qav4y-memrdvmn_rohit"
         
+        // Check if the object exists in S3
         const objectExists = await checkObjectExists(s3Key);
         if (!objectExists) {
             return res.status(404).json({
@@ -635,6 +647,7 @@ router.get("/signed-url/:userId", verifyToken, async (req, res) => {
             });
         }
         
+        // Generate signed URL (default 1 hour expiration)
         const signedUrl = await getSignedImageUrl(s3Key);
         
         res.json({
@@ -653,6 +666,7 @@ router.get("/signed-url/:userId", verifyToken, async (req, res) => {
         
     } catch (error) {
         console.error("[ERROR] Failed to generate signed URL:", error.message);
+        
         res.status(500).json({
             success: false,
             message: "Failed to generate signed URL",
@@ -661,12 +675,13 @@ router.get("/signed-url/:userId", verifyToken, async (req, res) => {
     }
 });
 
-// Get multiple signed URLs (Protected Route)
+// Get multiple signed URLs with different expiration times (Protected Route)
 router.get("/signed-urls/:userId", verifyToken, async (req, res) => {
     try {
         const userId = req.params.userId;
         const requestingUserId = req.user.userId;
         
+        // Access control: users can only access their own images
         if (requestingUserId !== userId) {
             return res.status(403).json({
                 success: false,
@@ -674,6 +689,7 @@ router.get("/signed-urls/:userId", verifyToken, async (req, res) => {
             });
         }
         
+        // Check if user has an uploaded image
         if (!userUploads.has(userId)) {
             return res.status(404).json({
                 success: false,
@@ -684,6 +700,7 @@ router.get("/signed-urls/:userId", verifyToken, async (req, res) => {
         const uploadData = userUploads.get(userId);
         const s3Key = uploadData.s3Key;
         
+        // Check if the object exists in S3
         const objectExists = await checkObjectExists(s3Key);
         if (!objectExists) {
             return res.status(404).json({
@@ -693,6 +710,7 @@ router.get("/signed-urls/:userId", verifyToken, async (req, res) => {
             });
         }
         
+        // Generate multiple signed URLs with different expiration times
         const multipleUrls = await getMultipleSignedUrls(s3Key);
         
         res.json({
@@ -710,6 +728,7 @@ router.get("/signed-urls/:userId", verifyToken, async (req, res) => {
         
     } catch (error) {
         console.error("[ERROR] Failed to generate multiple signed URLs:", error.message);
+        
         res.status(500).json({
             success: false,
             message: "Failed to generate signed URLs",
@@ -718,11 +737,12 @@ router.get("/signed-urls/:userId", verifyToken, async (req, res) => {
     }
 });
 
-// Get signed URL for current authenticated user
+// Get signed URL for current authenticated user (Simplified Protected Route)
 router.get("/my-signed-url", verifyToken, async (req, res) => {
     try {
         const userId = req.user.userId;
         
+        // Check if user has an uploaded image
         if (!userUploads.has(userId)) {
             return res.status(404).json({
                 success: false,
@@ -733,6 +753,7 @@ router.get("/my-signed-url", verifyToken, async (req, res) => {
         const uploadData = userUploads.get(userId);
         const s3Key = uploadData.s3Key;
         
+        // Check if the object exists in S3
         const objectExists = await checkObjectExists(s3Key);
         if (!objectExists) {
             return res.status(404).json({
@@ -742,8 +763,9 @@ router.get("/my-signed-url", verifyToken, async (req, res) => {
             });
         }
         
+        // Generate signed URL with custom expiration if provided
         const expirationHours = parseInt(req.query.expires) || 1;
-        const expirationSeconds = Math.min(expirationHours * 60 * 60, 24 * 60 * 60);
+        const expirationSeconds = Math.min(expirationHours * 60 * 60, 24 * 60 * 60); // Max 24 hours
         
         const signedUrl = await getSignedImageUrl(s3Key, expirationSeconds);
         
@@ -758,11 +780,16 @@ router.get("/my-signed-url", verifyToken, async (req, res) => {
                 uploadedAt: uploadData.uploadedAt,
                 size: uploadData.size,
                 sizeMB: uploadData.sizeMB
+            },
+            usage: {
+                note: "Use this signed URL to access your image directly",
+                queryParams: "Add ?expires=<hours> to customize expiration (max 24 hours)"
             }
         });
         
     } catch (error) {
         console.error("[ERROR] Failed to generate user's signed URL:", error.message);
+        
         res.status(500).json({
             success: false,
             message: "Failed to generate signed URL",
