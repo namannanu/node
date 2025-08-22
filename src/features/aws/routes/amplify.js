@@ -118,7 +118,7 @@ const upload = multer({
 });
 
 // Upload Image with AWS S3 (Protected Route)
-router.post("/upload/:userId", verifyToken, upload.single("image"), async (req, res) => {
+router.post("/upload", verifyToken, upload.single("image"), async (req, res) => {
     try {
         console.log("[DEBUG] Upload route hit.");
 
@@ -127,7 +127,7 @@ router.post("/upload/:userId", verifyToken, upload.single("image"), async (req, 
             return res.status(400).json({ success: false, msg: "No file uploaded" });
         }
 
-        const userId = req.params.userId; // Get from URL parameter
+        const userId = req.user.userId; // Get from JWT token
         const fullname = req.body.fullname; // Get from request body (will be from Aadhar API later)
         
         // Validate required fields
@@ -135,14 +135,6 @@ router.post("/upload/:userId", verifyToken, upload.single("image"), async (req, 
             return res.status(400).json({ 
                 success: false, 
                 message: "fullname is required in request body" 
-            });
-        }
-        
-        // Optional: Verify that the token userId matches the parameter userId
-        if (req.user.userId !== userId) {
-            return res.status(403).json({ 
-                success: false, 
-                message: "Token userId does not match the parameter userId" 
             });
         }
         
@@ -232,17 +224,9 @@ router.post("/upload/:userId", verifyToken, upload.single("image"), async (req, 
 });
 
 // Delete user's uploaded image (Protected Route)
-router.delete("/delete/:userId", verifyToken, async (req, res) => {
+router.delete("/delete", verifyToken, async (req, res) => {
     try {
-        const userId = req.params.userId; // Get from URL parameter
-        
-        // Optional: Verify that the token userId matches the parameter userId
-        if (req.user.userId !== userId) {
-            return res.status(403).json({ 
-                success: false, 
-                message: "Token userId does not match the parameter userId" 
-            });
-        }
+        const userId = req.user.userId; // Get from JWT token
         
         // Check if user has an uploaded image
         if (!userUploads.has(userId)) {
@@ -295,16 +279,8 @@ router.delete("/delete/:userId", verifyToken, async (req, res) => {
 });
 
 // Get user's uploaded image info (Protected Route)
-router.get("/my-upload/:userId", verifyToken, (req, res) => {
-    const userId = req.params.userId; // Get from URL parameter
-    
-    // Optional: Verify that the token userId matches the parameter userId
-    if (req.user.userId !== userId) {
-        return res.status(403).json({ 
-            success: false, 
-            message: "Token userId does not match the parameter userId" 
-        });
-    }
+router.get("/my-upload", verifyToken, (req, res) => {
+    const userId = req.user.userId; // Get from JWT token
     
     if (!userUploads.has(userId)) {
         return res.status(404).json({ 
@@ -322,16 +298,8 @@ router.get("/my-upload/:userId", verifyToken, (req, res) => {
 });
 
 // Get user's image data (S3 URL only)
-router.get("/retrieve-image/:userId", verifyToken, (req, res) => {
-    const userId = req.params.userId; // Get from URL parameter
-    
-    // Optional: Verify that the token userId matches the parameter userId
-    if (req.user.userId !== userId) {
-        return res.status(403).json({ 
-            success: false, 
-            message: "Token userId does not match the parameter userId" 
-        });
-    }
+router.get("/retrieve-image", verifyToken, (req, res) => {
+    const userId = req.user.userId; // Get from JWT token
     
     if (!userUploads.has(userId)) {
         return res.status(404).json({ 

@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "amplify-upload-api-collection",
 		"name": "Amplify Upload API - Complete Testing",
-		"description": "Complete collection for testing AWS S3 upload API with JWT authentication, userId parameters, and Aadhar API integration ready. Now includes fullname input from request body instead of JWT token.",
+		"description": "Complete collection for testing AWS S3 upload API with JWT authentication. UserId extracted from JWT token for better security. Fullname input from request body ready for Aadhar API integration.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "amplify-api-tester"
 	},
@@ -148,7 +148,7 @@
 			"response": []
 		},
 		{
-			"name": "4. Upload Image (with userId parameter)",
+			"name": "4. Upload Image (using JWT token)",
 			"event": [
 				{
 					"listen": "test",
@@ -212,17 +212,16 @@
 					]
 				},
 				"url": {
-					"raw": "{{base_url}}/api/upload/{{test_user_id}}",
+					"raw": "{{base_url}}/api/upload",
 					"host": [
 						"{{base_url}}"
 					],
 					"path": [
 						"api",
-						"upload",
-						"{{test_user_id}}"
+						"upload"
 					]
 				},
-				"description": "Upload image to S3 with userId as URL parameter. Filename format: userid_fullname"
+				"description": "Upload image to S3. UserId extracted from JWT token. Filename format: userid_fullname"
 			},
 			"response": []
 		},
@@ -258,14 +257,13 @@
 					}
 				],
 				"url": {
-					"raw": "{{base_url}}/api/my-upload/{{test_user_id}}",
+					"raw": "{{base_url}}/api/my-upload",
 					"host": [
 						"{{base_url}}"
 					],
 					"path": [
 						"api",
-						"my-upload",
-						"{{test_user_id}}"
+						"my-upload"
 					]
 				},
 				"description": "Get upload information for the authenticated user"
@@ -304,14 +302,13 @@
 					}
 				],
 				"url": {
-					"raw": "{{base_url}}/api/retrieve-image/{{test_user_id}}",
+					"raw": "{{base_url}}/api/retrieve-image",
 					"host": [
 						"{{base_url}}"
 					],
 					"path": [
 						"api",
-						"retrieve-image",
-						"{{test_user_id}}"
+						"retrieve-image"
 					]
 				},
 				"description": "Retrieve the S3 URL for the user's uploaded image"
@@ -356,18 +353,23 @@
 							"type": "file",
 							"src": [],
 							"description": "Any image file - this should be blocked"
+						},
+						{
+							"key": "fullname",
+							"value": "{{test_full_name}}",
+							"type": "text",
+							"description": "Full name from Aadhar API (currently manual input)"
 						}
 					]
 				},
 				"url": {
-					"raw": "{{base_url}}/api/upload/{{test_user_id}}",
+					"raw": "{{base_url}}/api/upload",
 					"host": [
 						"{{base_url}}"
 					],
 					"path": [
 						"api",
-						"upload",
-						"{{test_user_id}}"
+						"upload"
 					]
 				},
 				"description": "Test that duplicate uploads are prevented (one image per user)"
@@ -446,14 +448,13 @@
 					}
 				],
 				"url": {
-					"raw": "{{base_url}}/api/delete/{{test_user_id}}",
+					"raw": "{{base_url}}/api/delete",
 					"host": [
 						"{{base_url}}"
 					],
 					"path": [
 						"api",
-						"delete",
-						"{{test_user_id}}"
+						"delete"
 					]
 				},
 				"description": "Delete the user's uploaded image from S3 and local storage"
@@ -508,14 +509,13 @@
 					]
 				},
 				"url": {
-					"raw": "{{base_url}}/api/upload/{{test_user_id}}",
+					"raw": "{{base_url}}/api/upload",
 					"host": [
 						"{{base_url}}"
 					],
 					"path": [
 						"api",
-						"upload",
-						"{{test_user_id}}"
+						"upload"
 					]
 				},
 				"description": "Test that user can upload again after deleting previous image"
@@ -523,7 +523,7 @@
 			"response": []
 		},
 		{
-			"name": "10. Clear All Uploads (Admin)",
+			"name": "11. Clear All Uploads (Admin)",
 			"event": [
 				{
 					"listen": "test",
@@ -592,7 +592,7 @@
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "https://correct-hsva9m9pc-namans-projects-a5e5c016.vercel.app",
+			"value": "https://nodejscopy.vercel.app",
 			"type": "string"
 		},
 		{

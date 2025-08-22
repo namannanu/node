@@ -38,11 +38,6 @@ const createSendToken = (user, statusCode, res) => {
 
 
 
-
-
-
-
-
 const signup = async (userObj) => {
   const newUser = await User.create(userObj);
   return newUser;
