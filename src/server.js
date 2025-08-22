@@ -50,10 +50,6 @@ app.use(morgan('dev'));
 
 // Import and use feature routes
 const awsRoutes = require('./features/aws/aws-debug.routes');
-const fileUploadRoutes = require('./features/aws/routes/file-upload.routes');
-
-// Mount routes
-app.use('/api/files', fileUploadRoutes);
 
 // Debug route to verify API is working
 app.get('/api/debug', (req, res) => {
@@ -83,8 +79,6 @@ const amplifyRoutes = require('./features/aws/routes/amplify');
 
 // Use feature routes
 app.use('/api/auth', authRoutes);
-// AWS Upload routes (protected by JWT)
-app.use('/api/upload', uploadRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/organizers', organizerRoutes);
 app.use('/api/tickets', ticketRoute);
