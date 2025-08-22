@@ -16,7 +16,8 @@ const verifyAwsConfig = () => {
     console.log('- Secret Access Key:', process.env.AWS_SECRET_ACCESS_KEY ? '✅ Set' : '❌ Missing');
 };
 
-const getPresignedUrls = async (req, res) => {
+// Handle pre-signed URL generation
+async function getPresignedUrls(req, res) {
     // Verify AWS configuration on each request during testing
     verifyAwsConfig();
     
