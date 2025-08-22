@@ -18,7 +18,10 @@ const userSchema = new mongoose.Schema({
     default: 'pending' 
   },
   aadhaarPhoto: { type: String },
-  uploadedPhoto: { type: String },
+  uploadedPhoto: { 
+    type: String,
+    description: 'S3 URL for the user\'s uploaded photo (e.g., https://nfacialimagescollections.s3.ap-south-1.amazonaws.com/public/user-id)'
+  },
   lastLogin: { type: Date },
   status: { type: String, enum: ['active', 'suspended'], default: 'active' },
   createdAt: { type: Date, default: Date.now },

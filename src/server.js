@@ -235,14 +235,17 @@ const startServer = async () => {
     
     // Connect to database first and wait for it to complete
     console.log('🔄 Establishing database connection...'.yellow);
-    await connectDB();
+    const dbConnection = await connectDB();
     console.log('✅ Database connection established successfully!'.green.bold);
     
-    // Add middleware to attach db to every request
-    // This must be added AFTER connecting to the database
+    // Remove any existing middleware for db attachment first
+    app._router.stack = app._router.stack.filter(layer => 
+      !(layer.route === undefined && layer.handle.toString().includes('req.db = mongoose.connection'))
+    );
+    
+    // Add middleware to attach db to every request BEFORE route handlers
     app.use((req, res, next) => {
-      // Attach mongoose connection to request object
-      req.db = mongoose.connection;
+      req.db = dbConnection;
       next();
     });
     

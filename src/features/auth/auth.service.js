@@ -43,10 +43,30 @@ const createSendToken = (user, statusCode, res) => {
     }
   }
 
+  // Ensure uploadedPhoto is included in the response
+  const userResponse = {
+    userId: user.userId,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    permissions: user.permissions || [],
+    verificationStatus: user.verificationStatus,
+    status: user.status,
+    uploadedPhoto: user.uploadedPhoto || null, // Include uploadedPhoto field
+    _id: user._id,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    firstname: user.firstname,
+    lastname: user.lastname,
+    __v: user.__v,
+    lastLoginFormatted: user.lastLoginFormatted
+  };
+
   res.status(statusCode).json({
     status: 'success',
     token,
-    data: { user }
+    data: { user: userResponse }
   });
 };
 

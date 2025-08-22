@@ -55,6 +55,27 @@ const getPresignedUrls = catchAsync(async (req, res) => {
         }
 
         const user = await req.db.collection('users').findOne({ _id: userObjectId });
+        
+        // If the user has an uploaded photo URL from S3, update their record
+        if (req.body.fileUrl || user.uploadedPhoto) {
+            const photoUrl = req.body.fileUrl || user.uploadedPhoto;
+            
+            // Update user record with the photo URL
+            await req.db.collection('users').updateOne(
+                { _id: userObjectId },
+                { 
+                    $set: { 
+                        uploadedPhoto: photoUrl,
+                        updatedAt: new Date()
+                    } 
+                }
+            );
+            console.log('✅ Updated user record with photo URL:', photoUrl);
+            
+            // Refresh user data after update
+            user = await req.db.collection('users').findOne({ _id: userObjectId });
+        }
+
         console.log('👤 User lookup result:', {
             found: !!user,
             userId: userId,
@@ -125,13 +146,28 @@ const getPresignedUrls = catchAsync(async (req, res) => {
             hasAadhaarPhotoUrl: !!urls.aadhaarPhoto
         });
 
+        // Get the latest user data after potential updates
+        const updatedUser = await req.db.collection('users').findOne({ _id: userObjectId });
+        
         res.json({
             success: true,
             urls,
             user: {
-                id: user._id,
-                fullName: user.fullName,
-                verificationStatus: user.verificationStatus
+                id: updatedUser._id,
+                userId: updatedUser.userId,
+                fullName: updatedUser.fullName,
+                verificationStatus: updatedUser.verificationStatus,
+                uploadedPhoto: updatedUser.uploadedPhoto, // Include the uploaded photo URL
+                name: updatedUser.name,
+                email: updatedUser.email,
+                phone: updatedUser.phone,
+                role: updatedUser.role,
+                permissions: updatedUser.permissions || [],
+                status: updatedUser.status,
+                createdAt: updatedUser.createdAt,
+                updatedAt: updatedUser.updatedAt,
+                firstname: updatedUser.firstname,
+                lastname: updatedUser.lastname
             }
         });
     } catch (error) {

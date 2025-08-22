@@ -43,8 +43,8 @@ const connectDB = async () => {
             console.log('✅ MongoDB reconnected'.green);
         });
         
-        // Return the connection for confirmation
-        return conn;
+        // Return the mongoose connection instance
+        return mongoose.connection;
         
     } catch (error) {
         console.error(`❌ MongoDB connection error: ${error.message}`.red.bold);
