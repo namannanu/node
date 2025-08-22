@@ -8,8 +8,6 @@ const {
   createInvalidPermissionError, 
   createUnauthorizedPermissionError 
 } = require('../../shared/utils/permissionValidator');
-const { getSignedImageUrl, checkObjectExists } = require('../aws/s3-signed-url.service');
-const AadharService = require('../../shared/services/aadhar.service');
 
 // Create a new employee user
 exports.createEmployee = catchAsync(async (req, res, next) => {
