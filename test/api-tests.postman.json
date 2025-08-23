@@ -1,0 +1,230 @@
+{
+  "info": {
+    "name": "Face Verification API Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Presigned URLs Tests",
+      "item": [
+        {
+          "name": "Get Presigned URLs by MongoDB ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLXJnZHI1OG5wZy1tZW8zM201cCIsImlhdCI6MTc1NTk0NDYwMiwiZXhwIjoxNzYzNzIwNjAyfQ.hSOe1I6WZgc8e6iCB2O4f-4_wfPZS3IRiKfSIcMYDuo",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://correct-eight.vercel.app/api/users/68a9902e4f0701bb871e1f3e/presigned-urls",
+              "protocol": "https",
+              "host": ["correct-eight", "vercel", "app"],
+              "path": ["api", "users", "68a9902e4f0701bb871e1f3e", "presigned-urls"]
+            }
+          },
+          "response": [
+            {
+              "name": "Successful Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "https://correct-eight.vercel.app/api/users/68a9902e4f0701bb871e1f3e/presigned-urls"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": {
+                "success": true,
+                "images": [
+                  {
+                    "url": "https://nfacialimagescollections.s3.ap-south-1.amazonaws.com/public/user-rgdr58npg-meo33m5p_dakshdd",
+                    "originalUrl": "https://nfacialimagescollections.s3.ap-south-1.amazonaws.com/public/user-rgdr58npg-meo33m5p_dakshdd",
+                    "filename": "user-rgdr58npg-meo33m5p_dakshdd",
+                    "isPublic": true,
+                    "uploadedAt": "2025-08-23T09:56:36.127Z"
+                  }
+                ],
+                "user": {
+                  "_id": "68a9902e4f0701bb871e1f3e",
+                  "userId": "user-rgdr58npg-meo33m5p",
+                  "verificationStatus": "pending"
+                }
+              }
+            }
+          ],
+          "test": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has success flag', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Images array exists', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.images).to.be.an('array');",
+              "});",
+              "",
+              "pm.test('User object is present', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.user).to.be.an('object');",
+              "    pm.expect(jsonData.user._id).to.exist;",
+              "    pm.expect(jsonData.user.userId).to.exist;",
+              "});"
+            ]
+          }
+        },
+        {
+          "name": "Get Presigned URLs by User ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLXJnZHI1OG5wZy1tZW8zM201cCIsImlhdCI6MTc1NTk0NDYwMiwiZXhwIjoxNzYzNzIwNjAyfQ.hSOe1I6WZgc8e6iCB2O4f-4_wfPZS3IRiKfSIcMYDuo",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://correct-eight.vercel.app/api/users/user-rgdr58npg-meo33m5p/presigned-urls",
+              "protocol": "https",
+              "host": ["correct-eight", "vercel", "app"],
+              "path": ["api", "users", "user-rgdr58npg-meo33m5p", "presigned-urls"]
+            }
+          },
+          "test": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response structure is valid', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('object');",
+              "    pm.expect(jsonData.success).to.be.true;",
+              "    pm.expect(jsonData.images).to.be.an('array');",
+              "    pm.expect(jsonData.user).to.be.an('object');",
+              "});",
+              "",
+              "pm.test('User ID matches request', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.user.userId).to.equal('user-rgdr58npg-meo33m5p');",
+              "});"
+            ]
+          }
+        },
+        {
+          "name": "Invalid User ID Format",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLXJnZHI1OG5wZy1tZW8zM201cCIsImlhdCI6MTc1NTk0NDYwMiwiZXhwIjoxNzYzNzIwNjAyfQ.hSOe1I6WZgc8e6iCB2O4f-4_wfPZS3IRiKfSIcMYDuo",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://correct-eight.vercel.app/api/users/invalid-id/presigned-urls",
+              "protocol": "https",
+              "host": ["correct-eight", "vercel", "app"],
+              "path": ["api", "users", "invalid-id", "presigned-urls"]
+            }
+          },
+          "test": {
+            "exec": [
+              "pm.test('Status code is 404', function () {",
+              "    pm.response.to.have.status(404);",
+              "});",
+              "",
+              "pm.test('Error response structure', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.be.false;",
+              "    pm.expect(jsonData.message).to.exist;",
+              "});"
+            ]
+          }
+        },
+        {
+          "name": "No Authorization",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "https://correct-eight.vercel.app/api/users/68a9902e4f0701bb871e1f3e/presigned-urls",
+              "protocol": "https",
+              "host": ["correct-eight", "vercel", "app"],
+              "path": ["api", "users", "68a9902e4f0701bb871e1f3e", "presigned-urls"]
+            }
+          },
+          "test": {
+            "exec": [
+              "pm.test('Status code is 401', function () {",
+              "    pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Unauthorized error message', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.be.false;",
+              "    pm.expect(jsonData.message).to.include('unauthorized');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// You can add pre-request scripts here",
+          "// For example, setting environment variables",
+          "pm.environment.set('base_url', 'https://correct-eight.vercel.app');",
+          "pm.environment.set('jwt_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyLXJnZHI1OG5wZy1tZW8zM201cCIsImlhdCI6MTc1NTk0NDYwMiwiZXhwIjoxNzYzNzIwNjAyfQ.hSOe1I6WZgc8e6iCB2O4f-4_wfPZS3IRiKfSIcMYDuo');"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global tests that run after each request",
+          "pm.test('Response time is acceptable', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "",
+          "pm.test('Content-Type header is present', function () {",
+          "    pm.response.to.have.header('Content-Type');",
+          "});",
+          "",
+          "pm.test('Response has CORS headers', function () {",
+          "    pm.response.to.have.header('Access-Control-Allow-Origin');",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://correct-eight.vercel.app"
+    }
+  ]
+}

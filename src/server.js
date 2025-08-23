@@ -45,12 +45,29 @@ const corsOptions = {
 // Import DB middleware
 const attachDBMiddleware = require('./shared/middlewares/attachDB');
 
+// Import routes
+const presignedUrlRoutes = require('./features/users/presigned-url.routes');
+
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' })); 
 app.use(cookieParser());
 app.use(morgan('dev'));
 app.use(attachDBMiddleware);
+
+// Debug middleware for user routes
+app.use('/api/users/:userId/*', (req, res, next) => {
+    console.log('🔍 User ID Debug:', {
+        paramUserId: req.params.userId,
+        isObjectId: mongoose.Types.ObjectId.isValid(req.params.userId),
+        path: req.path,
+        method: req.method
+    });
+    next();
+});
+
+// Routes
+app.use('/api/users', presignedUrlRoutes);
 
 // Import and use feature routes
 const awsRoutes = require('./features/aws/aws-debug.routes');

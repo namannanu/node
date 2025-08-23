@@ -12,16 +12,17 @@ const connectDB = async () => {
     try {
         console.log('🔄 Connecting to MongoDB...'.yellow); // Debug log
         
-        // Set Mongoose-specific options
+        // Set Mongoose-specific options for Vercel serverless environment
         mongoose.set('bufferCommands', false); // Disable command buffering
         
         const options = {
-            maxPoolSize: 10,
+            maxPoolSize: 1, // Reduced for serverless
             serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000,
+            socketTimeoutMS: 30000,
             connectTimeoutMS: 10000,
-            // Remove the problematic bufferMaxEntries option
-            // bufferCommands is handled by Mongoose, not MongoDB driver
+            keepAlive: true,
+            keepAliveInitialDelay: 300000,
+            autoIndex: false, // Don't build indexes in production
         };
         
         const conn = await mongoose.connect(process.env.MONGO_URI, options);
