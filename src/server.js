@@ -42,11 +42,15 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
 
+// Import DB middleware
+const attachDBMiddleware = require('./shared/middlewares/attachDB');
+
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' })); 
 app.use(cookieParser());
 app.use(morgan('dev'));
+app.use(attachDBMiddleware);
 
 // Import and use feature routes
 const awsRoutes = require('./features/aws/aws-debug.routes');

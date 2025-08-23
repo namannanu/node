@@ -33,15 +33,6 @@ const getPresignedUrls = catchAsync(async (req, res) => {
         // Find user and verify they are in pending status
         console.log('🔍 Looking up user in database...');
         
-        // Check if req.db is available (from middleware)
-        if (!req.db) {
-            console.log('❌ Database connection not attached to request');
-            return res.status(500).json({
-                success: false,
-                message: 'Database connection error'
-            });
-        }
-
         // Convert string ID to MongoDB ObjectId
         let userObjectId;
         try {
@@ -54,26 +45,24 @@ const getPresignedUrls = catchAsync(async (req, res) => {
             });
         }
 
-        const user = await req.db.collection('users').findOne({ _id: userObjectId });
+        // Use mongoose model instead of direct db access
+        const User = mongoose.model('User');
+
+        let user = await User.findById(userObjectId);
         
         // If the user has an uploaded photo URL from S3, update their record
-        if (req.body.fileUrl || user.uploadedPhoto) {
+        if (req.body.fileUrl || user?.uploadedPhoto) {
             const photoUrl = req.body.fileUrl || user.uploadedPhoto;
             
             // Update user record with the photo URL
-            await req.db.collection('users').updateOne(
-                { _id: userObjectId },
-                { 
-                    $set: { 
-                        uploadedPhoto: photoUrl,
-                        updatedAt: new Date()
-                    } 
-                }
-            );
+            await User.findByIdAndUpdate(userObjectId, {
+                uploadedPhoto: photoUrl,
+                updatedAt: new Date()
+            });
             console.log('✅ Updated user record with photo URL:', photoUrl);
             
             // Refresh user data after update
-            user = await req.db.collection('users').findOne({ _id: userObjectId });
+            user = await User.findById(userObjectId);
         }
 
         console.log('👤 User lookup result:', {
