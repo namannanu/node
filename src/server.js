@@ -256,8 +256,19 @@ const startServer = async () => {
     
     // Connect to database first and wait for it to complete
     console.log('🔄 Establishing database connection...'.yellow);
-    const dbConnection = await connectDB();
-    console.log('✅ Database connection established successfully!'.green.bold);
+    let dbConnection;
+    try {
+      dbConnection = await connectDB();
+      console.log('✅ Database connection established successfully!'.green.bold);
+    } catch (dbError) {
+      console.error('❌ Database connection failed:', dbError.message);
+      if (process.env.NODE_ENV !== 'production') {
+        throw dbError; // In development, fail fast
+      }
+      // In production, continue without DB but log the error
+      console.warn('⚠️ Continuing without database in production mode'.yellow);
+      dbConnection = null;
+    }
     
     // Remove any existing middleware for db attachment first
     app._router.stack = app._router.stack.filter(layer => 
@@ -266,6 +277,14 @@ const startServer = async () => {
     
     // Add middleware to attach db to every request BEFORE route handlers
     app.use((req, res, next) => {
+      if (!dbConnection && process.env.NODE_ENV === 'production') {
+        // In production, if DB is not connected, return a 503 Service Unavailable
+        console.error('❌ Database connection not available');
+        return res.status(503).json({
+          success: false,
+          message: 'Service temporarily unavailable'
+        });
+      }
       req.db = dbConnection;
       next();
     });

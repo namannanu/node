@@ -1,4 +1,17 @@
-const mongoose = require('mongoose');
+conconst connectDB = async () => {
+    console.log('🔄 Attempting to connect to MongoDB...'.yellow);
+    
+    if (!process.env.MONGO_URI) {
+        console.error('❌ MONGO_URI environment variable is not set'.red.bold);
+        process.exit(1);
+    }
+    
+    try {
+        console.log('🔄 Connecting to MongoDB...'.yellow);
+        
+        // Mongoose specific settings for serverless
+        mongoose.set('strictQuery', true);
+        mongoose.set('bufferCommands', false); require('mongoose');
 const colors = require('colors');
 
 const connectDB = async () => {
@@ -15,14 +28,16 @@ const connectDB = async () => {
         // Set Mongoose-specific options for Vercel serverless environment
         mongoose.set('bufferCommands', false); // Disable command buffering
         
+        // MongoDB connection options optimized for serverless environment
         const options = {
             maxPoolSize: 1, // Reduced for serverless
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 30000,
             connectTimeoutMS: 10000,
-            keepAlive: true,
-            keepAliveInitialDelay: 300000,
+            // Remove keepAlive options as they're not supported
             autoIndex: false, // Don't build indexes in production
+            retryWrites: true,
+            w: 'majority'
         };
         
         const conn = await mongoose.connect(process.env.MONGO_URI, options);
