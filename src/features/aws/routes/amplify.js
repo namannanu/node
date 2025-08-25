@@ -13,6 +13,55 @@ const router = express.Router();
 // In-memory storage for user uploads
 const userUploads = new Map();
 
+// Generate JWT token route (for testing purposes)
+router.post("/generate-token", async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: "UserId is required"
+            });
+        }
+        
+        // Find or create user
+        let user = await User.findOne({ userId });
+        
+        if (!user) {
+            // Create a temporary user for testing
+            user = await User.create({
+                userId,
+                name: "Test User",
+                email: `${userId}@example.com`,
+                verificationStatus: "pending"
+            });
+        }
+        
+        const token = jwt.sign({ userId: user.userId }, JWT_SECRET, { expiresIn: "24h" });
+        
+        return res.status(200).json({
+            success: true,
+            token,
+            user: {
+                userId: user.userId,
+                name: user.name,
+                email: user.email,
+                verificationStatus: user.verificationStatus
+            },
+            expiresIn: "24h"
+        });
+        
+    } catch (error) {
+        console.error("[ERROR] Token Generation Failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to generate token",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -210,6 +259,370 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
         return res.status(500).json({
             success: false,
             message: "Upload failed",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Delete Image Route
+router.delete("/delete", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        // Check if user has an uploaded image
+        if (!userUploads.has(userId)) {
+            return res.status(404).json({
+                success: false,
+                message: "No image found for this user"
+            });
+        }
+
+        // Get upload info
+        const uploadInfo = userUploads.get(userId);
+
+        // Delete from S3
+        if (s3Available) {
+            const deleteParams = {
+                Bucket: "nfacialimagescollections",
+                Key: uploadInfo.s3Key
+            };
+
+            try {
+                await s3.send(new DeleteObjectCommand(deleteParams));
+            } catch (s3Error) {
+                console.error("[ERROR] S3 Delete Failed:", s3Error);
+                // We'll still proceed with removing the record even if S3 delete fails
+            }
+        }
+
+        // Update user record
+        const updatedUser = await User.findOneAndUpdate(
+            { userId: userId },
+            { 
+                $set: { 
+                    uploadedPhoto: null,
+                    updatedAt: new Date()
+                }
+            },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to update user record"
+            });
+        }
+
+        // Remove from in-memory storage
+        const deletedFile = {...userUploads.get(userId)};
+        userUploads.delete(userId);
+
+        return res.status(200).json({
+            success: true,
+            message: "Image deleted successfully and user record updated",
+            deletedFile,
+            user: {
+                userId: updatedUser.userId,
+                uploadedPhoto: updatedUser.uploadedPhoto,
+                updatedAt: updatedUser.updatedAt
+            }
+        });
+
+    } catch (error) {
+        console.error("[ERROR] Delete Failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Delete failed",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Retrieve My Upload
+router.get("/my-upload", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        // Check if user has an uploaded image
+        if (!userUploads.has(userId)) {
+            return res.status(404).json({
+                success: false,
+                message: "No image found for this user"
+            });
+        }
+
+        const uploadInfo = userUploads.get(userId);
+
+        return res.status(200).json({
+            success: true,
+            uploadInfo: uploadInfo,
+            message: "Upload information retrieved successfully"
+        });
+
+    } catch (error) {
+        console.error("[ERROR] Retrieving Upload Info Failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve upload information",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Retrieve image URL
+router.get("/retrieve-image", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        // Check if user has an uploaded image
+        if (!userUploads.has(userId)) {
+            return res.status(404).json({
+                success: false,
+                message: "No image found for this user"
+            });
+        }
+
+        const uploadInfo = userUploads.get(userId);
+
+        return res.status(200).json({
+            success: true,
+            fileUrl: uploadInfo.fileUrl,
+            filename: uploadInfo.filename,
+            storage: uploadInfo.storage,
+            message: "S3 URL retrieved successfully"
+        });
+
+    } catch (error) {
+        console.error("[ERROR] Retrieving Image URL Failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve image URL",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Get a signed URL for my image
+router.get("/my-signed-url", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const expiresIn = parseInt(req.query.expires) || 1; // Default 1 hour if not specified
+
+        // Check if user has an uploaded image
+        if (!userUploads.has(userId)) {
+            return res.status(404).json({
+                success: false,
+                message: "No image found for this user"
+            });
+        }
+
+        const uploadInfo = userUploads.get(userId);
+        
+        // Generate signed URL
+        const signedUrl = await getSignedImageUrl(
+            "nfacialimagescollections", 
+            uploadInfo.s3Key, 
+            expiresIn * 60 * 60 // Convert hours to seconds
+        );
+
+        if (!signedUrl) {
+            return res.status(500).json({
+                success: false, 
+                message: "Failed to generate signed URL"
+            });
+        }
+
+        // Calculate expiration time
+        const expirationTime = new Date();
+        expirationTime.setHours(expirationTime.getHours() + expiresIn);
+
+        return res.status(200).json({
+            success: true,
+            signedUrl,
+            expires: expirationTime.toISOString(),
+            expiresIn: `${expiresIn} ${expiresIn === 1 ? 'hour' : 'hours'}`,
+            imageInfo: {
+                filename: uploadInfo.filename,
+                userId: uploadInfo.userId,
+                uploadedAt: uploadInfo.uploadedAt,
+                contentType: uploadInfo.mimetype
+            }
+        });
+
+    } catch (error) {
+        console.error("[ERROR] Generating Signed URL Failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to generate signed URL",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Get multiple signed URLs with different expiration times
+router.get("/signed-urls/:userId", verifyToken, async (req, res) => {
+    try {
+        const targetUserId = req.params.userId;
+        const requestingUserId = req.user.userId;
+        
+        // Security check - users can only get URLs for themselves
+        if (targetUserId !== requestingUserId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only get signed URLs for your own images"
+            });
+        }
+
+        // Check if user has an uploaded image
+        if (!userUploads.has(targetUserId)) {
+            return res.status(404).json({
+                success: false,
+                message: "No image found for this user"
+            });
+        }
+
+        const uploadInfo = userUploads.get(targetUserId);
+
+        // Generate multiple signed URLs with different expiration times
+        const urls = await getMultipleSignedUrls(
+            "nfacialimagescollections",
+            uploadInfo.s3Key,
+            [15*60, 60*60, 24*60*60] // 15 minutes, 1 hour, 24 hours in seconds
+        );
+
+        if (!urls) {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to generate signed URLs"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            urls: {
+                short: {
+                    url: urls[0],
+                    expiresIn: "15 minutes"
+                },
+                medium: {
+                    url: urls[1],
+                    expiresIn: "1 hour"
+                },
+                long: {
+                    url: urls[2],
+                    expiresIn: "24 hours"
+                }
+            },
+            imageInfo: {
+                filename: uploadInfo.filename,
+                userId: uploadInfo.userId,
+                uploadedAt: uploadInfo.uploadedAt
+            }
+        });
+
+    } catch (error) {
+        console.error("[ERROR] Generating Multiple Signed URLs Failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to generate multiple signed URLs",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Check AWS connection status
+router.get("/aws-status", async (req, res) => {
+    try {
+        return res.status(200).json({
+            success: true,
+            aws: {
+                s3Available: s3Available,
+                bucketName: "nfacialimagescollections",
+                hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+                hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY,
+                region: process.env.AWS_REGION || "ap-south-1"
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Failed to check AWS status",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Test S3 connection by listing buckets
+router.get("/test-s3-connection", async (req, res) => {
+    try {
+        if (!s3Available) {
+            return res.status(503).json({
+                success: false,
+                message: "S3 client not initialized"
+            });
+        }
+
+        const listBucketsResponse = await s3.send(new ListBucketsCommand({}));
+        
+        return res.status(200).json({
+            success: true,
+            message: "S3 connection successful",
+            buckets: listBucketsResponse.Buckets?.map(bucket => bucket.Name) || [],
+            bucketCount: listBucketsResponse.Buckets?.length || 0
+        });
+    } catch (error) {
+        console.error("[ERROR] S3 Connection Test Failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to connect to S3",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// ADMIN ENDPOINTS
+
+// List all uploads (admin endpoint)
+router.get("/admin/uploads", async (req, res) => {
+    try {
+        // Convert the Map to an array
+        const uploads = Array.from(userUploads.entries()).map(([userId, uploadInfo]) => ({
+            userId,
+            ...uploadInfo
+        }));
+
+        return res.status(200).json({
+            success: true,
+            totalUploads: uploads.length,
+            uploads
+        });
+    } catch (error) {
+        console.error("[ERROR] Admin List Uploads Failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to list uploads",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Clear all uploads (admin endpoint - for testing)
+router.delete("/admin/clear-all-uploads", async (req, res) => {
+    try {
+        const uploadCount = userUploads.size;
+        userUploads.clear();
+
+        return res.status(200).json({
+            success: true,
+            message: `All ${uploadCount} uploads have been cleared from memory`,
+            clearedCount: uploadCount
+        });
+    } catch (error) {
+        console.error("[ERROR] Admin Clear Uploads Failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to clear uploads",
             error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
         });
     }
