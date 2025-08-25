@@ -169,67 +169,227 @@
 			],
 			"request": {
 				"method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{authToken}}"
-          }
-        ],
-        "url": "{{baseUrl}}/api/users/{{userId}}/image"
-      }
-    },
-    {
-      "name": "4. Verify Image Accessibility",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Image is accessible', () => {",
-              "    pm.expect(pm.response.code).to.equal(200);",
-              "    pm.expect(pm.response.headers.get('Content-Type')).to.include('image');",
-              "    console.log('✅ Image is accessible');",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "GET",
-        "url": "{{signedUrl}}"
-      }
-    },
-    {
-      "name": "5. Get Multiple URLs",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "const jsonData = pm.response.json();",
-              "",
-              "pm.test('Multiple URLs generated', () => {",
-              "    pm.expect(jsonData.success).to.be.true;",
-              "    pm.expect(jsonData.urls).to.be.an('object');",
-              "    pm.expect(jsonData.urls.short).to.have.property('url');",
-              "    pm.expect(jsonData.urls.medium).to.have.property('url');",
-              "    pm.expect(jsonData.urls.long).to.have.property('url');",
-              "    console.log('✅ Multiple URLs generated');",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{authToken}}"
-          }
-        ],
-        "url": "{{baseUrl}}/api/users/{{userId}}/image/urls"
-      }
-    }
-  ]
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/get-image-status/{{user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"get-image-status",
+						"{{user_id}}"
+					]
+				},
+				"description": "Check if a user has already uploaded an image. Returns image URL if available."
+			},
+			"response": []
+		},
+		{
+			"name": "4. Generate Signed URL for Download",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response contains signed URL\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('success', true);",
+							"    pm.expect(jsonData).to.have.property('url').that.is.a('string');",
+							"    pm.expect(jsonData).to.have.property('message', 'Signed URL generated successfully');",
+							"    ",
+							"    // Store the signed URL for subsequent requests",
+							"    if (jsonData.url) {",
+							"        pm.collectionVariables.set('signed_url', jsonData.url);",
+							"        console.log(\"✅ Signed URL saved: \" + jsonData.url);",
+							"    }",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/generate-signed-url/{{user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"generate-signed-url",
+						"{{user_id}}"
+					]
+				},
+				"description": "Generate a signed URL for securely accessing a user's uploaded image. The URL is time-limited for security."
+			},
+			"response": []
+		},
+		{
+			"name": "5. Access Image via Signed URL",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Image is accessible\", function() {",
+							"    pm.response.to.have.status(200);",
+							"    ",
+							"    // Check if response is an image",
+							"    pm.expect(pm.response.headers.get('Content-Type')).to.include('image');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{signed_url}}",
+					"host": [
+						"{{signed_url}}"
+					]
+				},
+				"description": "Verify that the generated signed URL provides access to the image. This tests the complete AWS S3 configuration."
+			},
+			"response": []
+		},
+		{
+			"name": "6. Delete User Image",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response indicates successful deletion\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('success', true);",
+							"    pm.expect(jsonData).to.have.property('message').that.includes('deleted');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/delete-image/{{user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"delete-image",
+						"{{user_id}}"
+					]
+				},
+				"description": "Delete a user's uploaded image from AWS S3 and update the user's record to reflect this change."
+			},
+			"response": []
+		},
+		{
+			"name": "7. Verify Image Deletion",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"User has no uploaded image\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('success', true);",
+							"    pm.expect(jsonData).to.have.property('hasUploadedImage', false);",
+							"    pm.expect(jsonData).to.not.have.property('imageUrl');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/get-image-status/{{user_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"get-image-status",
+						"{{user_id}}"
+					]
+				},
+				"description": "Confirm that the image was successfully deleted and the user's record has been updated."
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000"
+		},
+		{
+			"key": "test_user_id",
+			"value": "test123"
+		},
+		{
+			"key": "jwt_token",
+			"value": ""
+		},
+		{
+			"key": "user_id",
+			"value": ""
+		},
+		{
+			"key": "uploaded_image_url",
+			"value": ""
+		},
+		{
+			"key": "image_key",
+			"value": ""
+		},
+		{
+			"key": "signed_url",
+			"value": ""
+		}
+	]
 }
