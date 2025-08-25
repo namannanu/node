@@ -25,20 +25,26 @@ router.post("/generate-token", async (req, res) => {
             });
         }
         
-        // Find or create user
-        let user = await User.findOne({ userId });
+        // Find or create user - using email as userId for simplicity
+        let user = await User.findOne({ email: `${userId}@example.com` });
         
         if (!user) {
             // Create a temporary user for testing
             user = await User.create({
-                userId,
-                name: "Test User",
+                fullName: "Test User",
                 email: `${userId}@example.com`,
+                password: "temporary-password-change-later", // in production use proper hashing
+                phone: "1234567890", // placeholder
                 verificationStatus: "pending"
             });
         }
         
-        const token = jwt.sign({ userId: user.userId }, JWT_SECRET, { expiresIn: "24h" });
+        // Store userId in token - this could be user._id or email
+        const token = jwt.sign({ 
+            userId: userId, 
+            email: user.email, 
+            _id: user._id.toString() 
+        }, JWT_SECRET, { expiresIn: "24h" });
         
         return res.status(200).json({
             success: true,
@@ -147,8 +153,8 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const filename = `${userId}_${sanitizedFullname}`;
 
-        // Verify user exists first
-        const user = await User.findOne({ userId: userId });
+        // Verify user exists first - using email as lookup key
+        const user = await User.findOne({ email: `${userId}@example.com` });
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -192,9 +198,9 @@ router.post("/upload", verifyToken, upload.single("image"), async (req, res) => 
         await s3.send(new PutObjectCommand(params));
         const fileUrl = `https://nfacialimagescollections.s3.${process.env.AWS_REGION || 'ap-south-1'}.amazonaws.com/public/${filename}`;
 
-        // Update user's uploadedPhoto field
+        // Update user's uploadedPhoto field - using email for lookup
         const updatedUser = await User.findOneAndUpdate(
-            { userId: userId },
+            { email: `${userId}@example.com` },
             { 
                 $set: { 
                     uploadedPhoto: fileUrl,
@@ -344,16 +350,68 @@ router.get("/my-upload", verifyToken, async (req, res) => {
     try {
         const userId = req.user.userId;
 
-        // Check if user has an uploaded image
-        if (!userUploads.has(userId)) {
+        // First check in-memory cache
+        if (userUploads.has(userId)) {
+            const uploadInfo = userUploads.get(userId);
+            return res.status(200).json({
+                success: true,
+                uploadInfo: uploadInfo,
+                message: "Upload information retrieved successfully"
+            });
+        }
+        
+        // If not in memory, check database
+        const userRecord = await User.findOne({ email: `${userId}@example.com` });
+        
+        if (userRecord && userRecord.uploadedPhoto) {
+            const fileUrl = user.uploadedPhoto;
+            const filename = fileUrl.split('/').pop();
+            
+            // Create a simplified uploadInfo object
+            const uploadInfo = {
+                filename: filename,
+                userId: userId,
+                fileUrl: fileUrl,
+                uploadedAt: user.updatedAt.toISOString(),
+                storage: "aws_s3"
+            };
+            
+            // Store in memory for future requests
+            userUploads.set(userId, uploadInfo);
+            
+            return res.status(200).json({
+                success: true,
+                uploadInfo: uploadInfo,
+                message: "Upload information retrieved from database"
+            });
+        }
+        
+        // If not in memory, check database
+        const user = await User.findOne({ userId: userId });
+        
+        if (!user || !user.uploadedPhoto) {
             return res.status(404).json({
                 success: false,
                 message: "No image found for this user"
             });
         }
-
-        const uploadInfo = userUploads.get(userId);
-
+        
+        // Reconstruct upload info from database
+        const filename = user.uploadedPhoto.split('/').pop();
+        const timestamp = new Date(user.updatedAt).toISOString().replace(/[:.]/g, '-');
+        
+        // Create a minimal uploadInfo object from available data
+        const uploadInfo = {
+            filename: filename,
+            userId: userId,
+            uploadedAt: timestamp,
+            fileUrl: user.uploadedPhoto,
+            s3Key: `public/${filename}`
+        };
+        
+        // Store in memory for future requests
+        userUploads.set(userId, uploadInfo);
+        
         return res.status(200).json({
             success: true,
             uploadInfo: uploadInfo,
@@ -375,21 +433,48 @@ router.get("/retrieve-image", verifyToken, async (req, res) => {
     try {
         const userId = req.user.userId;
 
-        // Check if user has an uploaded image
-        if (!userUploads.has(userId)) {
+        // First check in-memory cache
+        if (userUploads.has(userId)) {
+            const uploadInfo = userUploads.get(userId);
+            return res.status(200).json({
+                success: true,
+                fileUrl: uploadInfo.fileUrl,
+                filename: uploadInfo.filename,
+                storage: uploadInfo.storage || "aws_s3",
+                message: "S3 URL retrieved successfully"
+            });
+        }
+        
+        // If not in memory, check database
+        const user = await User.findOne({ userId: userId });
+        
+        if (!user || !user.uploadedPhoto) {
             return res.status(404).json({
                 success: false,
                 message: "No image found for this user"
             });
         }
-
-        const uploadInfo = userUploads.get(userId);
-
+        
+        // Get file information from URL
+        const fileUrl = user.uploadedPhoto;
+        const filename = fileUrl.split('/').pop();
+        
+        // Create minimal upload info and store in memory
+        const uploadInfo = {
+            filename,
+            userId,
+            fileUrl,
+            uploadedAt: new Date(user.updatedAt).toISOString(),
+            storage: "aws_s3",
+            s3Key: `public/${filename}`
+        };
+        userUploads.set(userId, uploadInfo);
+        
         return res.status(200).json({
             success: true,
-            fileUrl: uploadInfo.fileUrl,
-            filename: uploadInfo.filename,
-            storage: uploadInfo.storage,
+            fileUrl,
+            filename,
+            storage: "aws_s3",
             message: "S3 URL retrieved successfully"
         });
 
@@ -398,6 +483,68 @@ router.get("/retrieve-image", verifyToken, async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to retrieve image URL",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+        });
+    }
+});
+
+// Get image status for a user
+router.get("/get-image-status/:userId", verifyToken, async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        
+        // Verify user has permission to access this data
+        if (req.user.userId !== userId && !req.user.isAdmin) {
+            return res.status(403).json({
+                success: false,
+                message: "You don't have permission to access this user's data"
+            });
+        }
+        
+        // First check in-memory cache
+        let hasUploadedImage = userUploads.has(userId);
+        let imageUrl = null;
+        let uploadInfo = null;
+        
+        if (hasUploadedImage) {
+            uploadInfo = userUploads.get(userId);
+            imageUrl = uploadInfo.fileUrl;
+        } else {
+            // Check database
+            const user = await User.findOne({ userId: userId });
+            
+            if (user && user.uploadedPhoto) {
+                hasUploadedImage = true;
+                imageUrl = user.uploadedPhoto;
+                
+                // Reconstruct and cache upload info
+                const filename = imageUrl.split('/').pop();
+                uploadInfo = {
+                    filename,
+                    userId,
+                    uploadedAt: new Date(user.updatedAt).toISOString(),
+                    fileUrl: imageUrl,
+                    storage: "aws_s3",
+                    s3Key: `public/${filename}`
+                };
+                userUploads.set(userId, uploadInfo);
+            }
+        }
+        
+        return res.status(200).json({
+            success: true,
+            hasUploadedImage,
+            message: hasUploadedImage ? 
+                "User has an uploaded image" : 
+                "User has not uploaded an image",
+            ...(hasUploadedImage && { imageUrl, uploadInfo })
+        });
+        
+    } catch (error) {
+        console.error("[ERROR] Getting Image Status Failed:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to get image status",
             error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
         });
     }

@@ -109,6 +109,10 @@ app.use('/api/registrations', registrationRoutes);
 app.use('/api/users', userRoutesNew);
 app.use('/api', amplifyRoutes);
 
+// Import and use image status routes
+const imageStatusRoutes = require('./features/aws/routes/image-status');
+app.use('/api', imageStatusRoutes);
+
 // Basic Routes
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/', (req, res) => res.send('Hello, World!'));
@@ -334,5 +338,10 @@ const startServer = async () => {
   }
 };
 
-// Start the application
-startServer();
+// If running directly (not imported), start the server
+if (require.main === module) {
+  startServer();
+}
+
+// Export the app for Vercel serverless functions
+module.exports = app;
